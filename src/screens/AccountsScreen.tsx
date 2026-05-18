@@ -27,10 +27,20 @@ interface DraggableAccountRowProps {
   accountCount: number;
   convertedBalance?: string;
   onDrop: (accountId: string, targetIndex: number) => void;
+  onDragStateChange: (isDragging: boolean) => void;
   onOpen: (accountId: string) => void;
 }
 
-function DraggableAccountRow({ account, index, isReordering, accountCount, convertedBalance, onDrop, onOpen }: DraggableAccountRowProps) {
+function DraggableAccountRow({
+  account,
+  index,
+  isReordering,
+  accountCount,
+  convertedBalance,
+  onDrop,
+  onDragStateChange,
+  onOpen,
+}: DraggableAccountRowProps) {
   const { colors } = useAppTheme();
   const dragY = useRef(new Animated.Value(0)).current;
   const latest = useRef({ accountCount, accountId: account.id, index, isReordering });
@@ -51,6 +61,7 @@ function DraggableAccountRow({ account, index, isReordering, accountCount, conve
       onShouldBlockNativeResponder: () => latest.current.isReordering,
       onPanResponderGrant: () => {
         setIsDragging(true);
+        onDragStateChange(true);
         startIndex.current = latest.current.index;
         dragY.stopAnimation();
         dragY.setValue(0);
@@ -60,6 +71,7 @@ function DraggableAccountRow({ account, index, isReordering, accountCount, conve
       },
       onPanResponderRelease: (_, gestureState) => {
         setIsDragging(false);
+        onDragStateChange(false);
         const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + Math.round(gestureState.dy / dragStep)));
 
         if (targetIndex !== startIndex.current) {
@@ -72,6 +84,7 @@ function DraggableAccountRow({ account, index, isReordering, accountCount, conve
       },
       onPanResponderTerminate: () => {
         setIsDragging(false);
+        onDragStateChange(false);
         Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
       },
     }),
@@ -109,6 +122,7 @@ export function AccountsScreen() {
   const { state, refreshMarketRates, isRefreshingRates, reorderAccounts } = useFinance();
   const { colors } = useAppTheme();
   const [isReordering, setIsReordering] = useState(false);
+  const [isDraggingAccount, setIsDraggingAccount] = useState(false);
   const [orderedAccounts, setOrderedAccounts] = useState(state.accounts);
   const netWorth = getNetWorthVnd(state.accounts, state.settings.usdToVndRate);
 
@@ -153,7 +167,7 @@ export function AccountsScreen() {
   }
 
   return (
-    <Screen scrollEnabled={!isReordering}>
+    <Screen scrollEnabled={!isDraggingAccount}>
       <View>
         <AppText variant="caption">Accounts</AppText>
         <AppText variant="title">Money buckets</AppText>
@@ -219,6 +233,7 @@ export function AccountsScreen() {
             convertedBalance={getConvertedBalance(account)}
             index={index}
             isReordering={isReordering}
+            onDragStateChange={setIsDraggingAccount}
             onDrop={dropAccount}
             onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
           />
