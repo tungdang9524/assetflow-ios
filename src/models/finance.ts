@@ -135,7 +135,6 @@ export interface AppSettings {
   rateSource?: string;
   pinEnabled: boolean;
   pinCode?: string;
-  biometricEnabled: boolean;
 }
 
 export interface FinanceState {

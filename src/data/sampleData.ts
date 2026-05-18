@@ -235,6 +235,5 @@ export const createSampleState = (): FinanceState => ({
     autoRateUpdates: true,
     rateSource: 'manual',
     pinEnabled: false,
-    biometricEnabled: false,
   },
 });

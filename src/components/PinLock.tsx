@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, StyleSheet, TextInput, View } from 'react-native';
-import * as LocalAuthentication from 'expo-local-authentication';
 
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
@@ -15,49 +14,6 @@ export function PinLock({ onUnlock }: PinLockProps) {
   const { state } = useFinance();
   const { colors } = useAppTheme();
   const [pin, setPin] = useState('');
-  const [canUseBiometric, setCanUseBiometric] = useState(false);
-
-  async function unlockWithBiometric() {
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock AssetFlow',
-      fallbackLabel: 'Use PIN',
-      cancelLabel: 'Cancel',
-      disableDeviceFallback: false,
-    });
-
-    if (result.success) {
-      onUnlock();
-    }
-  }
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function checkBiometric() {
-      const [hasHardware, isEnrolled] = await Promise.all([
-        LocalAuthentication.hasHardwareAsync(),
-        LocalAuthentication.isEnrolledAsync(),
-      ]);
-
-      if (isMounted) {
-        setCanUseBiometric(hasHardware && isEnrolled);
-      }
-    }
-
-    if (state.settings.biometricEnabled) {
-      checkBiometric().catch(() => undefined);
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [state.settings.biometricEnabled]);
-
-  useEffect(() => {
-    if (state.settings.biometricEnabled && canUseBiometric) {
-      unlockWithBiometric().catch(() => undefined);
-    }
-  }, [canUseBiometric, state.settings.biometricEnabled]);
 
   function unlock() {
     if (pin === state.settings.pinCode) {
@@ -84,9 +40,6 @@ export function PinLock({ onUnlock }: PinLockProps) {
           placeholderTextColor={colors.muted}
           style={[styles.input, { borderColor: colors.border, color: colors.text }]}
         />
-        {state.settings.biometricEnabled && canUseBiometric ? (
-          <PrimaryButton label="Unlock with biometrics" icon="scan-outline" onPress={() => unlockWithBiometric().catch(() => undefined)} />
-        ) : null}
         <PrimaryButton label="Unlock" icon="lock-open-outline" onPress={unlock} />
       </View>
     </View>

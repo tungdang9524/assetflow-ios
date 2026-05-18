@@ -22,18 +22,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.assetflow.app",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "AssetFlow uses Face ID to unlock your local finance data.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
-    "plugins": [
-      [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "Allow AssetFlow to use Face ID to unlock your local finance data."
-        }
-      ]
-    ],
     "extra": {
       "eas": {
         "projectId": "3bf40ea9-0ada-4093-ac79-7bdebe0158be"

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ExpoClipboard from 'expo-clipboard/build/ExpoClipboard';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
@@ -109,7 +108,7 @@ export function SettingsScreen() {
         <SettingsRow
           icon="lock-closed-outline"
           title="Security"
-          subtitle={`${state.settings.pinEnabled ? 'PIN on' : 'PIN off'} - ${state.settings.biometricEnabled ? 'biometrics on' : 'biometrics off'}`}
+          subtitle={state.settings.pinEnabled ? 'PIN on' : 'PIN off'}
           onPress={() => navigation.navigate('SecuritySettings')}
         />
         <SettingsRow icon="archive-outline" title="Backup" subtitle="Export or import JSON data" onPress={() => navigation.navigate('BackupSettings')} />
@@ -501,22 +500,6 @@ export function SecuritySettingsScreen() {
     updateSettings({ pinEnabled: true, pinCode: pin.trim() });
   }
 
-  async function toggleBiometric(value: boolean) {
-    if (!value) {
-      updateSettings({ biometricEnabled: false });
-      return;
-    }
-
-    const [hasHardware, isEnrolled] = await Promise.all([LocalAuthentication.hasHardwareAsync(), LocalAuthentication.isEnrolledAsync()]);
-
-    if (!hasHardware || !isEnrolled) {
-      Alert.alert('Biometrics unavailable', 'Set up Face ID or Touch ID on this device first.');
-      return;
-    }
-
-    updateSettings({ biometricEnabled: true, pinEnabled: true });
-  }
-
   return (
     <Screen>
       <Card style={styles.card}>
@@ -536,24 +519,6 @@ export function SecuritySettingsScreen() {
           <Pressable style={[styles.clearButton, { borderColor: colors.border }]} onPress={() => updateSettings({ pinEnabled: false, pinCode: undefined })}>
             <AppText style={styles.segmentLabel}>Disable</AppText>
           </Pressable>
-        </View>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleCopy}>
-            <AppText variant="body" style={styles.value}>
-              Face ID / biometrics
-            </AppText>
-            <AppText variant="caption">Uses device biometrics when available. Expo Go on iOS cannot test Face ID itself.</AppText>
-          </View>
-          <Switch
-            value={state.settings.biometricEnabled}
-            onValueChange={(value) => {
-              toggleBiometric(value).catch(() => {
-                Alert.alert('Biometric error', 'Could not check biometric availability.');
-              });
-            }}
-            trackColor={{ false: colors.border, true: colors.primarySoft }}
-            thumbColor={state.settings.biometricEnabled ? colors.primary : colors.muted}
-          />
         </View>
       </Card>
     </Screen>
