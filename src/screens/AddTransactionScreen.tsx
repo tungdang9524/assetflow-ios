@@ -76,9 +76,19 @@ export function AddTransactionScreen() {
     };
 
     if (editingTransaction) {
-      updateTransaction(editingTransaction.id, nextTransaction);
+      const result = updateTransaction(editingTransaction.id, nextTransaction);
+
+      if (!result.ok) {
+        Alert.alert('Insufficient balance', result.error ?? 'This transaction would make the account balance negative.');
+        return;
+      }
     } else {
-      addTransaction(nextTransaction);
+      const result = addTransaction(nextTransaction);
+
+      if (!result.ok) {
+        Alert.alert('Insufficient balance', result.error ?? 'This transaction would make the account balance negative.');
+        return;
+      }
     }
 
     navigation.goBack();

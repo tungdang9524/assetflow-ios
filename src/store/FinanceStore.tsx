@@ -23,8 +23,8 @@ interface FinanceContextValue {
   addAccount: (account: Omit<Account, 'id'>) => void;
   updateAccount: (accountId: string, updates: Partial<Account>) => void;
   deleteAccount: (accountId: string) => boolean;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => void;
-  updateTransaction: (transactionId: string, updates: Omit<Transaction, 'id'>) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => TransactionMutationResult;
+  updateTransaction: (transactionId: string, updates: Omit<Transaction, 'id'>) => TransactionMutationResult;
   deleteTransaction: (transactionId: string) => void;
   addCategory: (category: Omit<Category, 'id'>) => void;
   updateCategory: (categoryId: string, updates: Partial<Category>) => void;
@@ -44,6 +44,11 @@ interface FinanceContextValue {
   refreshMarketRates: () => Promise<void>;
   importState: (state: FinanceState) => void;
   resetSampleData: () => void;
+}
+
+interface TransactionMutationResult {
+  ok: boolean;
+  error?: string;
 }
 
 const FinanceContext = createContext<FinanceContextValue | undefined>(undefined);
@@ -91,6 +96,10 @@ function applyTransactionDelta(accounts: Account[], transaction: Transaction, us
 
     return account;
   });
+}
+
+function validateNonNegativeAccounts(accounts: Account[]) {
+  return accounts.every((account) => account.type === 'crypto' || account.balance >= 0);
 }
 
 function getNextMonthlyRun(dayOfMonth: number, fromDate = new Date()) {
@@ -181,38 +190,59 @@ export function FinanceProvider({ children }: PropsWithChildren) {
   }, []);
 
   const addTransaction = useCallback((input: Omit<Transaction, 'id' | 'date'> & { date?: string }) => {
+    let result: TransactionMutationResult = { ok: true };
+
     setState((currentState) => {
       const transaction: Transaction = {
         ...input,
         id: `txn-${Date.now()}`,
         date: input.date ?? new Date().toISOString(),
       };
+      const nextAccounts = applyTransactionToAccounts(currentState.accounts, transaction, currentState.settings.usdToVndRate);
+
+      if (!validateNonNegativeAccounts(nextAccounts)) {
+        result = { ok: false, error: 'This transaction would make an account balance negative.' };
+        return currentState;
+      }
 
       return {
         ...currentState,
-        accounts: applyTransactionToAccounts(currentState.accounts, transaction, currentState.settings.usdToVndRate),
+        accounts: nextAccounts,
         transactions: [transaction, ...currentState.transactions],
       };
     });
+
+    return result;
   }, []);
 
   const updateTransaction = useCallback((transactionId: string, updates: Omit<Transaction, 'id'>) => {
+    let result: TransactionMutationResult = { ok: true };
+
     setState((currentState) => {
       const existing = currentState.transactions.find((transaction) => transaction.id === transactionId);
 
       if (!existing) {
+        result = { ok: false, error: 'Transaction not found.' };
         return currentState;
       }
 
       const updatedTransaction: Transaction = { ...updates, id: transactionId };
       const accountsWithoutExisting = applyTransactionDelta(currentState.accounts, existing, currentState.settings.usdToVndRate, -1);
+      const nextAccounts = applyTransactionDelta(accountsWithoutExisting, updatedTransaction, currentState.settings.usdToVndRate, 1);
+
+      if (!validateNonNegativeAccounts(nextAccounts)) {
+        result = { ok: false, error: 'This transaction would make an account balance negative.' };
+        return currentState;
+      }
 
       return {
         ...currentState,
-        accounts: applyTransactionDelta(accountsWithoutExisting, updatedTransaction, currentState.settings.usdToVndRate, 1),
+        accounts: nextAccounts,
         transactions: currentState.transactions.map((transaction) => (transaction.id === transactionId ? updatedTransaction : transaction)),
       };
     });
+
+    return result;
   }, []);
 
   const deleteTransaction = useCallback((transactionId: string) => {
@@ -466,6 +496,10 @@ export function FinanceProvider({ children }: PropsWithChildren) {
         };
 
         accounts = applyTransactionDelta(accounts, transaction, currentState.settings.usdToVndRate, 1);
+        if (!validateNonNegativeAccounts(accounts)) {
+          accounts = currentState.accounts;
+          return recurring;
+        }
         generatedTransactions.push(transaction);
 
         return {
