@@ -20,7 +20,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.assetflow.app",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "AssetFlow uses Face ID to unlock your local finance data."
+        "NSFaceIDUsageDescription": "AssetFlow uses Face ID to unlock your local finance data.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "plugins": [
