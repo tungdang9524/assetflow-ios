@@ -1,13 +1,34 @@
+export type AccountsStackParamList = {
+  AccountsList: undefined;
+  AddAccount: { accountId?: string } | undefined;
+};
+
 export type TransactionsStackParamList = {
   TransactionsList: undefined;
-  AddTransaction: undefined;
+  AddTransaction: { transactionId?: string } | undefined;
 };
 
 export type RootTabParamList = {
   Dashboard: undefined;
   Accounts: undefined;
   Transactions: undefined;
+  Planning: undefined;
+  Settings: undefined;
+};
+
+export type PlanningStackParamList = {
+  PlanningHome: undefined;
   Budgets: undefined;
   Reports: undefined;
-  Settings: undefined;
+  Calendar: undefined;
+};
+
+export type SettingsStackParamList = {
+  SettingsHome: undefined;
+  RateSettings: undefined;
+  ThemeSettings: undefined;
+  CategorySettings: undefined;
+  SecuritySettings: undefined;
+  BackupSettings: undefined;
+  SampleDataSettings: undefined;
 };

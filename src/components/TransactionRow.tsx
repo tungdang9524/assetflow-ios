@@ -34,7 +34,7 @@ export function TransactionRow({ transaction, account, toAccount, category }: Tr
           {title}
         </AppText>
         <AppText variant="caption">
-          {formatShortDate(transaction.date)} · {transaction.note || account?.name || 'No note'}
+          {formatShortDate(transaction.date)} - {transaction.note || account?.name || 'No note'}
         </AppText>
       </View>
       <AppText variant="body" color={amountColor} style={styles.amount}>

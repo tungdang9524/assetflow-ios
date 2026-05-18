@@ -7,8 +7,8 @@ import { ProgressBar } from '../components/ProgressBar';
 import { Screen } from '../components/Screen';
 import { SectionHeader } from '../components/SectionHeader';
 import { useFinance } from '../store/FinanceStore';
-import { getMonthlyTotals, getMonthlyTrend, getTopExpenseCategories } from '../utils/calculations';
-import { compactCurrency, formatCurrency } from '../utils/currency';
+import { getMonthlyTotals, getMonthlyTrend, getNetWorthVnd, getTopExpenseCategories } from '../utils/calculations';
+import { compactCurrency, convertCurrency, formatCurrency } from '../utils/currency';
 import { getMonthKey } from '../utils/dates';
 
 export function ReportsScreen() {
@@ -19,6 +19,29 @@ export function ReportsScreen() {
   const trend = getMonthlyTrend(state.transactions, state.settings.usdToVndRate);
   const maxTrend = Math.max(...trend.map((item) => Math.max(item.income, item.expense)), 1);
   const maxCategory = categories[0]?.amount ?? 1;
+  const netWorth = getNetWorthVnd(state.accounts, state.settings.usdToVndRate);
+  const accountAllocation = state.accounts
+    .map((account) => {
+      const value =
+        account.type === 'crypto'
+          ? account.balance * (account.cryptoPriceUsd ?? 0) * state.settings.usdToVndRate
+          : convertCurrency(account.balance, account.currency, 'VND', state.settings.usdToVndRate);
+
+      return { account, value };
+    })
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
+  const outstandingDebt = state.debts
+    .filter((debt) => !debt.isPaid)
+    .reduce((sum, debt) => sum + convertCurrency(debt.amount, debt.currency, 'VND', state.settings.usdToVndRate), 0);
+  const goalTarget = state.savingsGoals.reduce(
+    (sum, goal) => sum + convertCurrency(goal.targetAmount, goal.currency, 'VND', state.settings.usdToVndRate),
+    0,
+  );
+  const goalCurrent = state.savingsGoals.reduce(
+    (sum, goal) => sum + convertCurrency(goal.currentAmount, goal.currency, 'VND', state.settings.usdToVndRate),
+    0,
+  );
 
   return (
     <Screen>
@@ -29,12 +52,46 @@ export function ReportsScreen() {
 
       <Card style={styles.summary}>
         <View>
+          <AppText variant="caption">Net worth</AppText>
+          <AppText variant="number">{formatCurrency(netWorth, 'VND')}</AppText>
+        </View>
+        <View>
           <AppText variant="caption">Income</AppText>
           <AppText variant="number">{formatCurrency(totals.income, 'VND')}</AppText>
         </View>
         <View>
           <AppText variant="caption">Expenses</AppText>
           <AppText variant="number">{formatCurrency(totals.expense, 'VND')}</AppText>
+        </View>
+      </Card>
+
+      <SectionHeader title="Account allocation" />
+      <Card style={styles.card}>
+        {accountAllocation.map((item) => (
+          <View key={item.account.id} style={styles.rowBlock}>
+            <View style={styles.line}>
+              <AppText style={styles.label}>{item.account.name}</AppText>
+              <AppText variant="caption">{compactCurrency(item.value, 'VND')}</AppText>
+            </View>
+            <ProgressBar percent={netWorth <= 0 ? 0 : item.value / netWorth} color={item.account.color} />
+          </View>
+        ))}
+      </Card>
+
+      <SectionHeader title="Plans snapshot" />
+      <Card style={styles.card}>
+        <View style={styles.line}>
+          <AppText style={styles.label}>Outstanding debts</AppText>
+          <AppText variant="caption">{formatCurrency(outstandingDebt, 'VND')}</AppText>
+        </View>
+        <View style={styles.rowBlock}>
+          <View style={styles.line}>
+            <AppText style={styles.label}>Savings goals</AppText>
+            <AppText variant="caption">
+              {formatCurrency(goalCurrent, 'VND')} / {formatCurrency(goalTarget, 'VND')}
+            </AppText>
+          </View>
+          <ProgressBar percent={goalTarget <= 0 ? 0 : goalCurrent / goalTarget} />
         </View>
       </Card>
 

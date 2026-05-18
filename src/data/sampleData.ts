@@ -1,7 +1,9 @@
-import { Account, Budget, Category, FinanceState, Transaction } from '../models/finance';
+import { Account, Budget, Category, Debt, FinanceState, RecurringTransaction, SavingsGoal, Transaction } from '../models/finance';
+import { getCryptoAsset } from './cryptoAssets';
 import { getMonthKey } from '../utils/dates';
 
 const currentMonth = getMonthKey(new Date());
+const sampleCrypto = getCryptoAsset('bitcoin');
 
 export const sampleAccounts: Account[] = [
   {
@@ -48,6 +50,19 @@ export const sampleAccounts: Account[] = [
     balance: 420,
     icon: 'earth-outline',
     color: '#0891B2',
+  },
+  {
+    id: 'btc-vault',
+    name: 'BTC Vault',
+    type: 'crypto',
+    currency: 'USD',
+    balance: 0.035,
+    icon: 'logo-bitcoin',
+    color: sampleCrypto.color,
+    cryptoId: sampleCrypto.id,
+    cryptoName: sampleCrypto.name,
+    cryptoSymbol: sampleCrypto.symbol,
+    cryptoPriceUsd: sampleCrypto.fallbackPriceUsd,
   },
 ];
 
@@ -138,14 +153,74 @@ export const sampleBudgets: Budget[] = [
   { id: 'b-entertainment', categoryId: 'entertainment', month: currentMonth, amount: 1200000, currency: 'VND' },
 ];
 
+export const sampleRecurringTransactions: RecurringTransaction[] = [
+  {
+    id: 'r-salary',
+    name: 'Salary',
+    type: 'income',
+    amount: 24000000,
+    currency: 'VND',
+    accountId: 'bank',
+    categoryId: 'salary',
+    interval: 'monthly',
+    dayOfMonth: 1,
+    nextRunAt: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+    note: 'Recurring salary',
+    isActive: true,
+  },
+];
+
+export const sampleDebts: Debt[] = [
+  {
+    id: 'd-friend',
+    type: 'lent',
+    name: 'Coffee advance',
+    person: 'Friend',
+    amount: 300000,
+    currency: 'VND',
+    dueDate: new Date(new Date().getFullYear(), new Date().getMonth(), 28).toISOString(),
+    note: 'Small personal loan',
+    isPaid: false,
+  },
+];
+
+export const sampleSavingsGoals: SavingsGoal[] = [
+  {
+    id: 'g-emergency',
+    name: 'Emergency fund',
+    targetAmount: 100000000,
+    currentAmount: 52000000,
+    currency: 'VND',
+    accountId: 'savings',
+    color: '#50A878',
+  },
+];
+
 export const createSampleState = (): FinanceState => ({
   accounts: sampleAccounts,
   categories: sampleCategories,
   transactions: sampleTransactions,
+  recurringTransactions: sampleRecurringTransactions,
   budgets: sampleBudgets,
+  debts: sampleDebts,
+  savingsGoals: sampleSavingsGoals,
+  cryptoWatchlist: [
+    {
+      id: 'w-bitcoin',
+      cryptoId: sampleCrypto.id,
+      cryptoName: sampleCrypto.name,
+      cryptoSymbol: sampleCrypto.symbol,
+      color: sampleCrypto.color,
+      priceUsd: sampleCrypto.fallbackPriceUsd,
+    },
+  ],
   settings: {
     baseCurrency: 'VND',
     usdToVndRate: 25000,
     theme: 'system',
+    autoRateUpdates: true,
+    rateSource: 'manual',
+    pinEnabled: false,
+    biometricEnabled: false,
   },
 });

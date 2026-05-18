@@ -37,3 +37,12 @@ export function compactCurrency(amount: number, currency: CurrencyCode) {
 
   return formatCurrency(amount, currency);
 }
+
+export function formatCryptoAmount(amount: number, symbol?: string) {
+  const formatted = new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 8,
+    minimumFractionDigits: 0,
+  }).format(amount);
+
+  return symbol ? `${formatted} ${symbol}` : formatted;
+}

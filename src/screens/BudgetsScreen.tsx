@@ -25,6 +25,7 @@ export function BudgetsScreen() {
       {budgets.map((budget) => {
         const category = state.categories.find((item) => item.id === budget.categoryId);
         const progress = getBudgetProgress(budget, state.transactions, state.settings.usdToVndRate);
+        const alertText = progress.percent >= 1 ? 'Over budget' : progress.percent >= 0.8 ? 'Close to limit' : undefined;
 
         return (
           <Card key={budget.id} style={styles.budgetCard}>
@@ -34,8 +35,9 @@ export function BudgetsScreen() {
                   {category?.name ?? 'Category'}
                 </AppText>
                 <AppText variant="caption">
-                  {formatCurrency(progress.spent, 'VND')} spent · {formatCurrency(Math.max(progress.remaining, 0), 'VND')} left
+                  {formatCurrency(progress.spent, 'VND')} spent - {formatCurrency(Math.max(progress.remaining, 0), 'VND')} left
                 </AppText>
+                {alertText ? <AppText color={progress.percent >= 1 ? '#D94841' : '#D98A1B'} variant="caption">{alertText}</AppText> : null}
               </View>
               <AppText variant="body" style={styles.amount}>
                 {Math.round(progress.percent * 100)}%

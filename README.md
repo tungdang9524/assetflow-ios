@@ -8,13 +8,28 @@ The MVP is designed for Windows development and iPhone testing through Expo Go. 
 
 - Dashboard with net worth, monthly income, expenses, balance, recent transactions, and spending summary.
 - Multiple accounts including Cash, Bank, E-wallet, Savings, and USD Account.
+- Custom account creation for VND, USD, and crypto holdings.
+- Edit/delete accounts and transactions, with balance impact reversed when transactions change.
 - VND base currency with a manual USD/VND exchange rate.
+- Optional network refresh for USD/VND and supported crypto prices.
 - Income, expense, and transfer transactions that update balances.
-- Expense and income categories with sample data.
-- Monthly category budgets with spent, remaining, and progress bars.
-- Reports using simple Expo-compatible cards and progress bars.
-- Settings for base currency display, USD/VND rate, theme, and sample data reset.
+- Search and filter transactions.
+- Custom expense and income categories.
+- Monthly category budgets with spent, remaining, progress bars, and simple alerts.
+- Debts/loans, savings goals, and a monthly transaction calendar.
+- Reports using simple Expo-compatible cards, progress bars, allocation views, and planning snapshots.
+- Settings for base currency display, USD/VND rate, theme, PIN/biometric lock, JSON backup/import, and sample data reset.
 - AsyncStorage local persistence.
+
+## Market Rates
+
+AssetFlow stores a manual USD/VND rate by default and can refresh rates from the network when enabled in Settings.
+
+- USD/VND uses the public `open.er-api.com` latest USD endpoint.
+- Crypto prices use CoinGecko's public simple price endpoint.
+- Supported MVP crypto assets: 50 market-cap sorted assets seeded from CoinGecko.
+- Network rates are for personal tracking estimates, not trading execution.
+- FX data attribution: Rates by Exchange Rate API.
 
 ## Run On Windows With iPhone And Expo Go
 
@@ -37,6 +52,8 @@ npx expo start --tunnel
 ```
 
 Expo Go testing is free and works from Windows. This is the recommended MVP development loop.
+
+Face ID note: AssetFlow includes biometric unlock through `expo-local-authentication`, but Expo's iOS Face ID prompt is not supported inside Expo Go. Use the PIN fallback while testing in Expo Go. To test real Face ID, create an EAS development or preview build.
 
 ## Scripts
 

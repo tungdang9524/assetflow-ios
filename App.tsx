@@ -4,13 +4,16 @@ import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { PinLock } from './src/components/PinLock';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { FinanceProvider, useFinance } from './src/store/FinanceStore';
 import { AppThemeProvider, useAppTheme } from './src/theme/AppThemeProvider';
 
 function AppShell() {
   const { isReady } = useFinance();
+  const { state } = useFinance();
   const { navigationTheme, isDark } = useAppTheme();
+  const [isUnlocked, setIsUnlocked] = React.useState(false);
 
   if (!isReady) {
     return (
@@ -23,7 +26,7 @@ function AppShell() {
   return (
     <NavigationContainer theme={navigationTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <AppNavigator />
+      {state.settings.pinEnabled && state.settings.pinCode && !isUnlocked ? <PinLock onUnlock={() => setIsUnlocked(true)} /> : <AppNavigator />}
     </NavigationContainer>
   );
 }

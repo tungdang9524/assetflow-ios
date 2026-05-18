@@ -4,6 +4,10 @@ import { getMonthKey, isInMonth } from './dates';
 
 export function getNetWorthVnd(accounts: Account[], usdToVndRate: number) {
   return accounts.reduce((sum, account) => {
+    if (account.type === 'crypto') {
+      return sum + account.balance * (account.cryptoPriceUsd ?? 0) * usdToVndRate;
+    }
+
     return sum + convertCurrency(account.balance, account.currency, 'VND', usdToVndRate);
   }, 0);
 }

@@ -4,17 +4,49 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AccountsScreen } from '../screens/AccountsScreen';
+import { AddAccountScreen } from '../screens/AddAccountScreen';
 import { AddTransactionScreen } from '../screens/AddTransactionScreen';
 import { BudgetsScreen } from '../screens/BudgetsScreen';
+import { CalendarScreen } from '../screens/CalendarScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
+import { PlanningScreen } from '../screens/PlanningScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
-import { SettingsScreen } from '../screens/SettingsScreen';
+import {
+  BackupSettingsScreen,
+  CategorySettingsScreen,
+  RateSettingsScreen,
+  SampleDataSettingsScreen,
+  SecuritySettingsScreen,
+  SettingsScreen,
+  ThemeSettingsScreen,
+} from '../screens/SettingsScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
 import { useAppTheme } from '../theme/AppThemeProvider';
-import { RootTabParamList, TransactionsStackParamList } from './types';
+import { AccountsStackParamList, PlanningStackParamList, RootTabParamList, SettingsStackParamList, TransactionsStackParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
+const AccountsStack = createNativeStackNavigator<AccountsStackParamList>();
 const TransactionsStack = createNativeStackNavigator<TransactionsStackParamList>();
+const PlanningStack = createNativeStackNavigator<PlanningStackParamList>();
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+
+function AccountsStackNavigator() {
+  const { colors } = useAppTheme();
+
+  return (
+    <AccountsStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
+        headerTintColor: colors.text,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <AccountsStack.Screen name="AccountsList" component={AccountsScreen} options={{ title: 'Accounts' }} />
+      <AccountsStack.Screen name="AddAccount" component={AddAccountScreen} options={{ title: 'Add Account', presentation: 'modal' }} />
+    </AccountsStack.Navigator>
+  );
+}
 
 function TransactionStackNavigator() {
   const { colors } = useAppTheme();
@@ -31,6 +63,49 @@ function TransactionStackNavigator() {
       <TransactionsStack.Screen name="TransactionsList" component={TransactionsScreen} options={{ title: 'Transactions' }} />
       <TransactionsStack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ title: 'Add Transaction', presentation: 'modal' }} />
     </TransactionsStack.Navigator>
+  );
+}
+
+function PlanningStackNavigator() {
+  const { colors } = useAppTheme();
+
+  return (
+    <PlanningStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
+        headerTintColor: colors.text,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <PlanningStack.Screen name="PlanningHome" component={PlanningScreen} options={{ title: 'Planning' }} />
+      <PlanningStack.Screen name="Budgets" component={BudgetsScreen} options={{ title: 'Budgets' }} />
+      <PlanningStack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
+      <PlanningStack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
+    </PlanningStack.Navigator>
+  );
+}
+
+function SettingsStackNavigator() {
+  const { colors } = useAppTheme();
+
+  return (
+    <SettingsStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
+        headerTintColor: colors.text,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <SettingsStack.Screen name="RateSettings" component={RateSettingsScreen} options={{ title: 'Rates' }} />
+      <SettingsStack.Screen name="ThemeSettings" component={ThemeSettingsScreen} options={{ title: 'Theme' }} />
+      <SettingsStack.Screen name="CategorySettings" component={CategorySettingsScreen} options={{ title: 'Categories' }} />
+      <SettingsStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ title: 'Security' }} />
+      <SettingsStack.Screen name="BackupSettings" component={BackupSettingsScreen} options={{ title: 'Backup' }} />
+      <SettingsStack.Screen name="SampleDataSettings" component={SampleDataSettingsScreen} options={{ title: 'Sample Data' }} />
+    </SettingsStack.Navigator>
   );
 }
 
@@ -59,8 +134,7 @@ export function AppNavigator() {
             Dashboard: 'grid-outline',
             Accounts: 'wallet-outline',
             Transactions: 'swap-horizontal-outline',
-            Budgets: 'pie-chart-outline',
-            Reports: 'bar-chart-outline',
+            Planning: 'flag-outline',
             Settings: 'settings-outline',
           };
 
@@ -69,11 +143,10 @@ export function AppNavigator() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Accounts" component={AccountsScreen} />
+      <Tab.Screen name="Accounts" component={AccountsStackNavigator} />
       <Tab.Screen name="Transactions" component={TransactionStackNavigator} />
-      <Tab.Screen name="Budgets" component={BudgetsScreen} />
-      <Tab.Screen name="Reports" component={ReportsScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Planning" component={PlanningStackNavigator} />
+      <Tab.Screen name="Settings" component={SettingsStackNavigator} />
     </Tab.Navigator>
   );
 }

@@ -3,7 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Account } from '../models/finance';
-import { formatCurrency } from '../utils/currency';
+import { formatCryptoAmount, formatCurrency } from '../utils/currency';
+import { formatAccountType } from '../utils/labels';
 import { AppText } from './AppText';
 import { Card } from './Card';
 import { IconBadge } from './IconBadge';
@@ -14,6 +15,10 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account, convertedBalance }: AccountCardProps) {
+  const primaryBalance =
+    account.type === 'crypto' ? formatCryptoAmount(account.balance, account.cryptoSymbol) : formatCurrency(account.balance, account.currency);
+  const typeLabel = account.type === 'crypto' && account.cryptoName ? account.cryptoName : formatAccountType(account.type);
+
   return (
     <Card style={styles.card}>
       <View style={styles.row}>
@@ -22,11 +27,11 @@ export function AccountCard({ account, convertedBalance }: AccountCardProps) {
           <AppText variant="body" style={styles.name}>
             {account.name}
           </AppText>
-          <AppText variant="caption">{account.type.toUpperCase()}</AppText>
+          <AppText variant="caption">{typeLabel}</AppText>
         </View>
         <View style={styles.amounts}>
           <AppText variant="body" style={styles.balance}>
-            {formatCurrency(account.balance, account.currency)}
+            {primaryBalance}
           </AppText>
           {convertedBalance ? <AppText variant="caption">{convertedBalance}</AppText> : null}
         </View>

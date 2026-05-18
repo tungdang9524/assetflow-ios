@@ -18,8 +18,18 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.assetflow.app"
+      "bundleIdentifier": "com.assetflow.app",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "AssetFlow uses Face ID to unlock your local finance data."
+      }
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow AssetFlow to use Face ID to unlock your local finance data."
+        }
+      ]
+    ]
   }
 }
