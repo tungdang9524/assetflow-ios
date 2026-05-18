@@ -3,13 +3,13 @@ import { StyleProp, Text, TextProps, TextStyle } from 'react-native';
 
 import { useAppTheme } from '../theme/AppThemeProvider';
 
-interface AppTextProps extends PropsWithChildren, Pick<TextProps, 'ellipsizeMode' | 'numberOfLines'> {
+interface AppTextProps extends PropsWithChildren, Pick<TextProps, 'ellipsizeMode' | 'numberOfLines' | 'selectable'> {
   variant?: 'title' | 'heading' | 'body' | 'caption' | 'number';
   color?: string;
   style?: StyleProp<TextStyle>;
 }
 
-export function AppText({ children, variant = 'body', color, style, ellipsizeMode, numberOfLines }: AppTextProps) {
+export function AppText({ children, variant = 'body', color, style, ellipsizeMode, numberOfLines, selectable }: AppTextProps) {
   const { colors } = useAppTheme();
 
   const baseStyle: TextStyle = {
@@ -24,5 +24,9 @@ export function AppText({ children, variant = 'body', color, style, ellipsizeMod
     number: { fontSize: 24, fontWeight: '800', lineHeight: 30 },
   };
 
-  return <Text ellipsizeMode={ellipsizeMode} numberOfLines={numberOfLines} style={[baseStyle, variants[variant], style]}>{children}</Text>;
+  return (
+    <Text ellipsizeMode={ellipsizeMode} numberOfLines={numberOfLines} selectable={selectable} style={[baseStyle, variants[variant], style]}>
+      {children}
+    </Text>
+  );
 }

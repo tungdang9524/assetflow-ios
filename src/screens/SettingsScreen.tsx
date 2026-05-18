@@ -547,7 +547,7 @@ export function BackupSettingsScreen() {
         <AppText variant="heading">Backup</AppText>
         <PrimaryButton label="Generate JSON backup" icon="download-outline" onPress={generateBackup} />
         <View style={[styles.backupPreview, { borderColor: colors.border }]}>
-          <AppText variant="caption" numberOfLines={6} ellipsizeMode="tail" style={styles.backupPreviewText}>
+          <AppText variant="caption" numberOfLines={6} ellipsizeMode="tail" selectable style={styles.backupPreviewText}>
             {backupText || 'Backup JSON will appear here.'}
           </AppText>
         </View>
