@@ -431,8 +431,11 @@ export function AddCryptoHoldingScreen() {
       color: selectedCrypto.color,
     };
 
-    navigation.setParams({ holding: undefined });
-    navigation.navigate('AddAccount', { accountId: route.params?.accountId, cryptoHolding: nextHolding });
+    navigation.navigate({
+      name: 'AddAccount',
+      params: { accountId: route.params?.accountId, cryptoHolding: nextHolding },
+      merge: true,
+    });
   }
 
   return (
