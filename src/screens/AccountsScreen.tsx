@@ -19,6 +19,7 @@ import { convertCurrency, formatCurrency } from '../utils/currency';
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AccountsList'>;
 
 const dragStep = 88;
+const reorderThreshold = 76;
 const autoScrollEdgeSize = 120;
 const autoScrollStep = 18;
 
@@ -79,7 +80,7 @@ function DraggableAccountRow({
       onPanResponderMove: (_, gestureState) => {
         const currentScrollY = onDragMove(gestureState.moveY);
         let effectiveDy = gestureState.dy - startGestureDy.current + currentScrollY - startScrollY.current;
-        const indexDelta = Math.round(effectiveDy / dragStep);
+        const indexDelta = effectiveDy > reorderThreshold ? 1 : effectiveDy < -reorderThreshold ? -1 : 0;
 
         if (indexDelta !== 0) {
           const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + indexDelta));
@@ -87,10 +88,11 @@ function DraggableAccountRow({
           const movedDelta = reorderedIndex - startIndex.current;
 
           if (movedDelta !== 0) {
-            startGestureDy.current += movedDelta * dragStep;
+            const nextEffectiveDy = effectiveDy - movedDelta * dragStep;
+            startGestureDy.current = gestureState.dy - nextEffectiveDy;
             startIndex.current = reorderedIndex;
             startScrollY.current = currentScrollY;
-            effectiveDy = gestureState.dy - startGestureDy.current;
+            effectiveDy = nextEffectiveDy;
           }
         }
 
