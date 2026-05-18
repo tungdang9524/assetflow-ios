@@ -13,7 +13,7 @@ import { DebtType } from '../models/finance';
 import { PlanningStackParamList } from '../navigation/types';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
-import { convertCurrency, formatCurrency } from '../utils/currency';
+import { formatCurrency } from '../utils/currency';
 
 type Navigation = NativeStackNavigationProp<PlanningStackParamList, 'PlanningHome'>;
 type PlanningSection = 'goals' | 'debts';
@@ -35,21 +35,6 @@ export function PlanningScreen() {
   const [debtName, setDebtName] = useState('');
   const [debtPerson, setDebtPerson] = useState('');
   const [debtAmount, setDebtAmount] = useState('');
-
-  const goalTargetTotal = state.savingsGoals.reduce(
-    (sum, goal) => sum + convertCurrency(goal.targetAmount, goal.currency, 'VND', state.settings.usdToVndRate),
-    0,
-  );
-  const goalCurrentTotal = state.savingsGoals.reduce(
-    (sum, goal) => sum + convertCurrency(goal.currentAmount, goal.currency, 'VND', state.settings.usdToVndRate),
-    0,
-  );
-  const openDebtTotal = state.debts
-    .filter((debt) => !debt.isPaid)
-    .reduce((sum, debt) => sum + convertCurrency(debt.amount, debt.currency, 'VND', state.settings.usdToVndRate), 0);
-  const creditMinimumDue = state.accounts
-    .filter((account) => account.type === 'credit')
-    .reduce((sum, account) => sum + convertCurrency(account.minimumPayment ?? 0, account.currency, 'VND', state.settings.usdToVndRate), 0);
 
   function addGoal() {
     const target = parseAmount(goalTarget);
@@ -129,29 +114,6 @@ export function PlanningScreen() {
         <AppText variant="title">Plan ahead</AppText>
       </View>
 
-      <Card style={styles.hubCard}>
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryItem}>
-            <AppText variant="caption">Goals saved</AppText>
-            <AppText style={styles.summaryValue}>{formatCurrency(goalCurrentTotal, 'VND')}</AppText>
-          </View>
-          <View style={styles.summaryItem}>
-            <AppText variant="caption">Open debts</AppText>
-            <AppText style={styles.summaryValue}>{formatCurrency(openDebtTotal, 'VND')}</AppText>
-          </View>
-          <View style={styles.summaryItem}>
-            <AppText variant="caption">Credit due</AppText>
-            <AppText style={styles.summaryValue}>{formatCurrency(creditMinimumDue, 'VND')}</AppText>
-          </View>
-        </View>
-        <ProgressBar percent={goalTargetTotal <= 0 ? 0 : goalCurrentTotal / goalTargetTotal} />
-        <View style={styles.toolList}>
-          {renderToolRow('pie-chart-outline', 'Budgets', 'Category limits for this month', () => navigation.navigate('Budgets'))}
-          {renderToolRow('calendar-outline', 'Calendar', 'Daily income, expenses, and transfers', () => navigation.navigate('Calendar'))}
-          {renderToolRow('bar-chart-outline', 'Reports', 'Trends and category breakdowns', () => navigation.navigate('Reports'))}
-        </View>
-      </Card>
-
       <View style={styles.segment}>
         {(['goals', 'debts'] as PlanningSection[]).map((item) => {
           const selected = activeSection === item;
@@ -177,7 +139,6 @@ export function PlanningScreen() {
             </View>
             <View style={styles.flex}>
               <AppText variant="heading">Savings goals</AppText>
-              <AppText variant="caption">Track targets and update saved amounts.</AppText>
             </View>
           </View>
           <TextInput placeholder="Goal name" placeholderTextColor={colors.muted} value={goalName} onChangeText={setGoalName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
@@ -247,7 +208,6 @@ export function PlanningScreen() {
             </View>
             <View style={styles.flex}>
               <AppText variant="heading">Debts & loans</AppText>
-              <AppText variant="caption">Record money owed to you or by you.</AppText>
             </View>
           </View>
           <View style={styles.segment}>
@@ -297,28 +257,21 @@ export function PlanningScreen() {
           </View>
         </Card>
       )}
+
+      <Card style={styles.card}>
+        <View style={styles.toolList}>
+          {renderToolRow('pie-chart-outline', 'Budgets', 'Category limits for this month', () => navigation.navigate('Budgets'))}
+          {renderToolRow('calendar-outline', 'Calendar', 'Daily income, expenses, and transfers', () => navigation.navigate('Calendar'))}
+          {renderToolRow('bar-chart-outline', 'Reports', 'Trends and category breakdowns', () => navigation.navigate('Reports'))}
+        </View>
+      </Card>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hubCard: {
-    gap: 16,
-  },
   card: {
     gap: 14,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  summaryItem: {
-    flex: 1,
-    gap: 4,
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '800',
   },
   toolList: {
     gap: 8,
