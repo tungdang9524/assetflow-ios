@@ -21,6 +21,7 @@ export type PlanningStackParamList = {
   SavingsGoals: undefined;
   DebtsLoans: undefined;
   Budgets: undefined;
+  BudgetDetail: { budgetId: string };
   Reports: undefined;
   Calendar: undefined;
 };

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
 import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressBar } from '../components/ProgressBar';
 import { Screen } from '../components/Screen';
+import { PlanningStackParamList } from '../navigation/types';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
 import { getBudgetProgress } from '../utils/calculations';
@@ -17,23 +20,25 @@ function parseAmount(value: string) {
   return Number(value.replace(/,/g, '.'));
 }
 
+type BudgetsNavigation = NativeStackNavigationProp<PlanningStackParamList, 'Budgets'>;
+type BudgetDetailNavigation = NativeStackNavigationProp<PlanningStackParamList, 'BudgetDetail'>;
+type BudgetDetailRoute = RouteProp<PlanningStackParamList, 'BudgetDetail'>;
+
 export function BudgetsScreen() {
-  const { state, addBudget, updateBudget, deleteBudget } = useFinance();
+  const navigation = useNavigation<BudgetsNavigation>();
+  const { state, addBudget } = useFinance();
   const { colors } = useAppTheme();
   const monthKey = getMonthKey(new Date());
   const expenseCategories = state.categories.filter((category) => category.type === 'expense');
   const budgets = state.budgets.filter((budget) => budget.month === monthKey);
-  const [editingBudgetId, setEditingBudgetId] = useState<string | undefined>();
   const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState('');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
-  const editingBudget = budgets.find((budget) => budget.id === editingBudgetId);
-  const budgetedCategoryIds = new Set(budgets.filter((budget) => budget.id !== editingBudgetId).map((budget) => budget.categoryId));
+  const budgetedCategoryIds = new Set(budgets.map((budget) => budget.categoryId));
   const availableCategories = expenseCategories.filter((category) => !budgetedCategoryIds.has(category.id));
   const selectedCategory = expenseCategories.find((category) => category.id === categoryId);
 
   function resetForm() {
-    setEditingBudgetId(undefined);
     setCategoryId('');
     setAmount('');
     setIsCategoryDropdownOpen(false);
@@ -52,48 +57,14 @@ export function BudgetsScreen() {
       return;
     }
 
-    if (editingBudget) {
-      updateBudget(editingBudget.id, {
-        categoryId,
-        amount: parsedAmount,
-        currency: 'VND',
-        month: monthKey,
-      });
-    } else {
-      addBudget({
-        categoryId,
-        amount: parsedAmount,
-        currency: 'VND',
-        month: monthKey,
-      });
-    }
+    addBudget({
+      categoryId,
+      amount: parsedAmount,
+      currency: 'VND',
+      month: monthKey,
+    });
 
     resetForm();
-  }
-
-  function editBudget(budget: (typeof budgets)[number]) {
-    setEditingBudgetId(budget.id);
-    setCategoryId(budget.categoryId);
-    setAmount(String(budget.amount));
-    setIsCategoryDropdownOpen(false);
-  }
-
-  function confirmDeleteBudget() {
-    if (!editingBudget) {
-      return;
-    }
-
-    Alert.alert('Delete budget', 'Remove this monthly budget?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteBudget(editingBudget.id);
-          resetForm();
-        },
-      },
-    ]);
   }
 
   return (
@@ -105,7 +76,7 @@ export function BudgetsScreen() {
 
       <Card style={styles.formCard}>
         <View>
-          <AppText variant="heading">{editingBudget ? 'Edit budget' : 'Add budget'}</AppText>
+          <AppText variant="heading">Add budget</AppText>
           <AppText variant="caption">Set a monthly limit for one expense category.</AppText>
         </View>
 
@@ -156,17 +127,7 @@ export function BudgetsScreen() {
         </View>
 
         <View style={styles.actions}>
-          <PrimaryButton label={editingBudget ? 'Save changes' : 'Add budget'} icon="save-outline" onPress={saveBudget} disabled={!editingBudget && availableCategories.length === 0} />
-          {editingBudget ? (
-            <>
-              <Pressable style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={resetForm}>
-                <AppText style={styles.buttonText}>Cancel</AppText>
-              </Pressable>
-              <Pressable style={[styles.secondaryButton, { borderColor: colors.danger }]} onPress={confirmDeleteBudget}>
-                <AppText color={colors.danger} style={styles.buttonText}>Delete</AppText>
-              </Pressable>
-            </>
-          ) : null}
+          <PrimaryButton label="Add budget" icon="save-outline" onPress={saveBudget} disabled={availableCategories.length === 0} />
         </View>
       </Card>
 
@@ -177,8 +138,8 @@ export function BudgetsScreen() {
           const alertText = progress.percent >= 1 ? 'Over budget' : progress.percent >= 0.8 ? 'Close to limit' : undefined;
 
           return (
-            <Pressable key={budget.id} onPress={() => editBudget(budget)}>
-              <Card style={[styles.budgetCard, { borderColor: editingBudgetId === budget.id ? colors.primary : colors.border }]}>
+            <Pressable key={budget.id} onPress={() => navigation.navigate('BudgetDetail', { budgetId: budget.id })}>
+              <Card style={[styles.budgetCard, { borderColor: colors.border }]}>
                 <View style={styles.row}>
                   <View style={styles.copy}>
                     <AppText variant="body" style={styles.category}>
@@ -202,6 +163,135 @@ export function BudgetsScreen() {
           );
         })}
       </View>
+    </Screen>
+  );
+}
+
+export function BudgetDetailScreen() {
+  const route = useRoute<BudgetDetailRoute>();
+  const navigation = useNavigation<BudgetDetailNavigation>();
+  const { state, updateBudget, deleteBudget } = useFinance();
+  const { colors } = useAppTheme();
+  const monthKey = getMonthKey(new Date());
+  const budget = state.budgets.find((item) => item.id === route.params.budgetId);
+  const budgets = state.budgets.filter((item) => item.month === monthKey);
+  const expenseCategories = state.categories.filter((category) => category.type === 'expense');
+  const [categoryId, setCategoryId] = useState(budget?.categoryId ?? '');
+  const [amount, setAmount] = useState(budget ? String(budget.amount) : '');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const budgetedCategoryIds = new Set(budgets.filter((item) => item.id !== budget?.id).map((item) => item.categoryId));
+  const availableCategories = expenseCategories.filter((category) => !budgetedCategoryIds.has(category.id));
+  const selectedCategory = expenseCategories.find((category) => category.id === categoryId);
+
+  if (!budget) {
+    return (
+      <Screen>
+        <Card style={styles.formCard}>
+          <AppText variant="heading">Budget not found</AppText>
+        </Card>
+      </Screen>
+    );
+  }
+
+  const selectedBudget = budget;
+
+  function saveBudget() {
+    const parsedAmount = parseAmount(amount);
+
+    if (!categoryId) {
+      Alert.alert('Choose category', 'Select a category for this budget.');
+      return;
+    }
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert('Invalid budget', 'Enter a budget amount greater than zero.');
+      return;
+    }
+
+    updateBudget(selectedBudget.id, {
+      categoryId,
+      amount: parsedAmount,
+      currency: 'VND',
+      month: selectedBudget.month,
+    });
+    navigation.goBack();
+  }
+
+  function confirmDeleteBudget() {
+    Alert.alert('Delete budget', 'Remove this monthly budget?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteBudget(selectedBudget.id);
+          navigation.goBack();
+        },
+      },
+    ]);
+  }
+
+  return (
+    <Screen>
+      <Card style={styles.formCard}>
+        <View>
+          <AppText variant="heading">Edit budget</AppText>
+          <AppText variant="caption">{formatMonthLabel(selectedBudget.month)}</AppText>
+        </View>
+
+        <View style={styles.field}>
+          <AppText variant="caption">Category</AppText>
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setIsCategoryDropdownOpen((value) => !value)}
+          >
+            <View style={styles.dropdownValue}>
+              {selectedCategory ? <View style={[styles.dot, { backgroundColor: selectedCategory.color }]} /> : null}
+              <AppText color={selectedCategory ? colors.text : colors.muted} style={styles.dropdownText}>
+                {selectedCategory?.name ?? 'Choose category'}
+              </AppText>
+            </View>
+            <Ionicons name={isCategoryDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+          </Pressable>
+          {isCategoryDropdownOpen ? (
+            <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              {availableCategories.map((category, index) => (
+                <Pressable
+                  key={category.id}
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border, borderBottomWidth: index === availableCategories.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
+                  onPress={() => {
+                    setCategoryId(category.id);
+                    setIsCategoryDropdownOpen(false);
+                  }}
+                >
+                  <View style={[styles.dot, { backgroundColor: category.color }]} />
+                  <AppText style={styles.dropdownItemText}>{category.name}</AppText>
+                  {category.id === categoryId ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.field}>
+          <AppText variant="caption">Monthly limit (VND)</AppText>
+          <TextInput
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={amount}
+            onChangeText={setAmount}
+            style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+          />
+        </View>
+
+        <View style={styles.actions}>
+          <PrimaryButton label="Save changes" icon="save-outline" onPress={saveBudget} />
+          <Pressable style={[styles.secondaryButton, { borderColor: colors.danger }]} onPress={confirmDeleteBudget}>
+            <AppText color={colors.danger} style={styles.buttonText}>Delete</AppText>
+          </Pressable>
+        </View>
+      </Card>
     </Screen>
   );
 }

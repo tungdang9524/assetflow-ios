@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AccountsScreen } from '../screens/AccountsScreen';
 import { AddAccountScreen } from '../screens/AddAccountScreen';
 import { AddTransactionScreen } from '../screens/AddTransactionScreen';
-import { BudgetsScreen } from '../screens/BudgetsScreen';
+import { BudgetDetailScreen, BudgetsScreen } from '../screens/BudgetsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { DebtsLoansScreen, PlanningScreen, SavingsGoalsScreen } from '../screens/PlanningScreen';
@@ -84,6 +84,7 @@ function PlanningStackNavigator() {
       <PlanningStack.Screen name="SavingsGoals" component={SavingsGoalsScreen} options={{ title: 'Savings Goals' }} />
       <PlanningStack.Screen name="DebtsLoans" component={DebtsLoansScreen} options={{ title: 'Debts & Loans' }} />
       <PlanningStack.Screen name="Budgets" component={BudgetsScreen} options={{ title: 'Budgets' }} />
+      <PlanningStack.Screen name="BudgetDetail" component={BudgetDetailScreen} options={{ title: 'Edit Budget' }} />
       <PlanningStack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
       <PlanningStack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
     </PlanningStack.Navigator>
