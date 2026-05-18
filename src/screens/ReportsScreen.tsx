@@ -24,7 +24,9 @@ export function ReportsScreen() {
     .map((account) => {
       const value =
         account.type === 'crypto'
-          ? account.balance * (account.cryptoPriceUsd ?? 0) * state.settings.usdToVndRate
+          ? account.cryptoHoldings?.length
+            ? account.cryptoHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0) * state.settings.usdToVndRate, 0)
+            : account.balance * (account.cryptoPriceUsd ?? 0) * state.settings.usdToVndRate
           : convertCurrency(account.balance, account.currency, 'VND', state.settings.usdToVndRate);
 
       return { account, value };

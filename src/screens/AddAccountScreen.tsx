@@ -1,16 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
 
 import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
 import { getCryptoAsset, supportedCryptoAssets } from '../data/cryptoAssets';
-import { AccountType, CryptoId, CurrencyCode } from '../models/finance';
+import { AccountType, CryptoHolding, CryptoId, CurrencyCode } from '../models/finance';
 import { AccountsStackParamList } from '../navigation/types';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
@@ -19,10 +18,12 @@ import { formatAccountType } from '../utils/labels';
 
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AddAccount'>;
 type Route = RouteProp<AccountsStackParamList, 'AddAccount'>;
+type CryptoHoldingNavigation = NativeStackNavigationProp<AccountsStackParamList, 'AddCryptoHolding'>;
+type CryptoHoldingRoute = RouteProp<AccountsStackParamList, 'AddCryptoHolding'>;
 
-const regularAccountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign', 'credit'];
+const accountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign', 'credit', 'crypto'];
 const accountColors = ['#50A878', '#3D7BFF', '#F59E0B', '#8B5CF6', '#0891B2', '#D94841', '#7C3AED'];
-const iconsByType: Record<AccountType, string> = {
+const iconsByType: Record<AccountType, keyof typeof Ionicons.glyphMap> = {
   cash: 'wallet-outline',
   bank: 'business-outline',
   ewallet: 'phone-portrait-outline',
@@ -32,52 +33,105 @@ const iconsByType: Record<AccountType, string> = {
   crypto: 'logo-bitcoin',
 };
 
+function parseAmount(value: string) {
+  return Number(value.replace(/,/g, '.'));
+}
+
+function getLegacyHolding(account: ReturnType<typeof useFinance>['state']['accounts'][number] | undefined): CryptoHolding[] {
+  if (!account || account.type !== 'crypto') {
+    return [];
+  }
+
+  if (account.cryptoHoldings?.length) {
+    return account.cryptoHoldings;
+  }
+
+  if (!account.cryptoId || !account.cryptoSymbol || !account.cryptoName) {
+    return [];
+  }
+
+  const asset = getCryptoAsset(account.cryptoId);
+  return [
+    {
+      id: `holding-${account.cryptoId}`,
+      cryptoId: account.cryptoId,
+      cryptoName: account.cryptoName,
+      cryptoSymbol: account.cryptoSymbol,
+      quantity: account.balance,
+      priceUsd: account.cryptoPriceUsd ?? asset.fallbackPriceUsd,
+      change24h: account.crypto24hChange,
+      lastPriceUpdatedAt: account.lastPriceUpdatedAt,
+      color: asset.color,
+    },
+  ];
+}
+
 export function AddAccountScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
   const { state, addAccount, updateAccount, deleteAccount } = useFinance();
   const { colors } = useAppTheme();
   const editingAccount = state.accounts.find((account) => account.id === route.params?.accountId);
-  const [mode, setMode] = useState<'regular' | 'crypto'>(editingAccount?.type === 'crypto' ? 'crypto' : 'regular');
+  const [accountType, setAccountType] = useState<AccountType>(editingAccount?.type ?? 'cash');
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [name, setName] = useState(editingAccount?.name ?? '');
-  const [accountType, setAccountType] = useState<AccountType>(editingAccount && editingAccount.type !== 'crypto' ? editingAccount.type : 'cash');
   const [currency, setCurrency] = useState<CurrencyCode>(editingAccount?.currency ?? 'VND');
-  const [balance, setBalance] = useState(editingAccount ? String(editingAccount.balance) : '');
+  const [balance, setBalance] = useState(editingAccount && editingAccount.type !== 'crypto' ? String(editingAccount.balance) : '');
   const [color, setColor] = useState(editingAccount?.color ?? accountColors[0]);
-  const [cryptoId, setCryptoId] = useState<CryptoId>(editingAccount?.cryptoId ?? 'bitcoin');
-  const [isCryptoDropdownOpen, setIsCryptoDropdownOpen] = useState(false);
+  const [cryptoHoldings, setCryptoHoldings] = useState<CryptoHolding[]>(getLegacyHolding(editingAccount));
   const [creditLimit, setCreditLimit] = useState(editingAccount?.creditLimit ? String(editingAccount.creditLimit) : '');
   const [statementDay, setStatementDay] = useState(editingAccount?.statementDay ? String(editingAccount.statementDay) : '20');
   const [paymentDueDay, setPaymentDueDay] = useState(editingAccount?.paymentDueDay ? String(editingAccount.paymentDueDay) : '5');
   const [minimumPayment, setMinimumPayment] = useState(editingAccount?.minimumPayment ? String(editingAccount.minimumPayment) : '');
   const [annualInterestRate, setAnnualInterestRate] = useState(editingAccount?.annualInterestRate ? String(editingAccount.annualInterestRate) : '');
-  const selectedCrypto = getCryptoAsset(cryptoId);
+  const selectedTypeIcon = iconsByType[accountType];
 
-  function parseAmount(value: string) {
-    return Number(value.replace(/,/g, '.'));
-  }
+  useEffect(() => {
+    const pendingHolding = route.params?.cryptoHolding;
 
-  function handleSubmit() {
-    const parsedBalance = parseAmount(balance);
-
-    if (!Number.isFinite(parsedBalance) || (mode !== 'regular' || accountType !== 'credit') && parsedBalance < 0) {
-      Alert.alert('Invalid amount', 'Enter a valid balance or crypto quantity.');
+    if (!pendingHolding) {
       return;
     }
 
-    if (mode === 'crypto') {
-      const asset = getCryptoAsset(cryptoId);
+    setAccountType('crypto');
+    setCryptoHoldings((currentHoldings) => {
+      const existingIndex = currentHoldings.findIndex((holding) => holding.id === pendingHolding.id);
+
+      if (existingIndex < 0) {
+        return [...currentHoldings, pendingHolding];
+      }
+
+      const nextHoldings = [...currentHoldings];
+      nextHoldings[existingIndex] = pendingHolding;
+      return nextHoldings;
+    });
+    navigation.setParams({ cryptoHolding: undefined });
+  }, [navigation, route.params?.cryptoHolding]);
+
+  function handleSubmit() {
+    const parsedBalance = parseAmount(balance || '0');
+
+    if (accountType === 'crypto') {
+      if (cryptoHoldings.length === 0) {
+        Alert.alert('No crypto assets', 'Add at least one crypto asset and quantity.');
+        return;
+      }
+
+      const primaryHolding = cryptoHoldings[0];
       const nextAccount = {
-        name: name.trim() || `${asset.symbol} Wallet`,
+        name: name.trim() || 'Crypto Wallet',
         type: 'crypto',
         currency: 'USD',
-        balance: parsedBalance,
+        balance: primaryHolding.quantity,
         icon: 'logo-bitcoin',
-        color: asset.color,
-        cryptoId: asset.id,
-        cryptoName: asset.name,
-        cryptoSymbol: asset.symbol,
-        cryptoPriceUsd: asset.fallbackPriceUsd,
+        color: primaryHolding.color,
+        cryptoId: primaryHolding.cryptoId,
+        cryptoName: primaryHolding.cryptoName,
+        cryptoSymbol: primaryHolding.cryptoSymbol,
+        cryptoPriceUsd: primaryHolding.priceUsd,
+        crypto24hChange: primaryHolding.change24h,
+        lastPriceUpdatedAt: primaryHolding.lastPriceUpdatedAt,
+        cryptoHoldings,
         creditLimit: undefined,
         statementDay: undefined,
         paymentDueDay: undefined,
@@ -92,6 +146,11 @@ export function AddAccountScreen() {
       }
 
       navigation.goBack();
+      return;
+    }
+
+    if (!Number.isFinite(parsedBalance) || (accountType !== 'credit' && parsedBalance < 0)) {
+      Alert.alert('Invalid amount', 'Enter a valid balance.');
       return;
     }
 
@@ -145,6 +204,7 @@ export function AddAccountScreen() {
       cryptoSymbol: undefined,
       cryptoPriceUsd: undefined,
       crypto24hChange: undefined,
+      cryptoHoldings: undefined,
       lastPriceUpdatedAt: undefined,
     };
 
@@ -183,31 +243,11 @@ export function AddAccountScreen() {
 
   return (
     <Screen>
-      <View style={styles.block}>
-        <AppText variant="caption">Account kind</AppText>
-        <View style={styles.segment}>
-          {(['regular', 'crypto'] as const).map((item) => {
-            const selected = mode === item;
-            return (
-              <Pressable
-                key={item}
-                style={[styles.segmentItem, { backgroundColor: selected ? colors.primary : colors.surface, borderColor: colors.border }]}
-                onPress={() => setMode(item)}
-              >
-                <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentLabel}>
-                  {item === 'regular' ? 'Money' : 'Crypto'}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
       <Card style={styles.form}>
         <View style={styles.inputGroup}>
           <AppText variant="caption">Name</AppText>
           <TextInput
-            placeholder={mode === 'crypto' ? 'BTC Wallet' : 'My account'}
+            placeholder={accountType === 'crypto' ? 'Crypto Wallet' : 'My account'}
             placeholderTextColor={colors.muted}
             value={name}
             onChangeText={setName}
@@ -215,23 +255,76 @@ export function AddAccountScreen() {
           />
         </View>
 
-        {mode === 'regular' ? (
-          <>
-            <View style={styles.inputGroup}>
-              <AppText variant="caption">Type</AppText>
-              <View style={styles.optionGrid}>
-                {regularAccountTypes.map((item) => (
-                  <Pressable
-                    key={item}
-                    style={[styles.option, { borderColor: item === accountType ? colors.primary : colors.border, backgroundColor: colors.surface }]}
-                    onPress={() => setAccountType(item)}
-                  >
-                    <AppText style={styles.optionText}>{formatAccountType(item)}</AppText>
-                  </Pressable>
-                ))}
-              </View>
+        <View style={styles.inputGroup}>
+          <AppText variant="caption">Type</AppText>
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setIsTypeDropdownOpen((value) => !value)}
+          >
+            <View style={[styles.typeIcon, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name={selectedTypeIcon} size={18} color={colors.primary} />
             </View>
+            <AppText style={styles.optionText}>{formatAccountType(accountType)}</AppText>
+            <Ionicons name={isTypeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+          </Pressable>
+          {isTypeDropdownOpen ? (
+            <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              {accountTypes.map((item) => (
+                <Pressable
+                  key={item}
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                  onPress={() => {
+                    setAccountType(item);
+                    setIsTypeDropdownOpen(false);
+                    if (item === 'crypto') {
+                      setCurrency('USD');
+                    }
+                  }}
+                >
+                  <View style={[styles.typeIcon, { backgroundColor: colors.primarySoft }]}>
+                    <Ionicons name={iconsByType[item]} size={18} color={colors.primary} />
+                  </View>
+                  <AppText style={styles.optionText}>{formatAccountType(item)}</AppText>
+                  {item === accountType ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
 
+        {accountType === 'crypto' ? (
+          <View style={styles.inputGroup}>
+            <View style={styles.rowHeader}>
+              <AppText variant="caption">Crypto assets</AppText>
+              <Pressable style={[styles.smallButton, { borderColor: colors.border }]} onPress={() => navigation.navigate('AddCryptoHolding', { accountId: editingAccount?.id })}>
+                <Ionicons name="add" size={16} color={colors.primary} />
+                <AppText color={colors.primary} style={styles.smallButtonText}>Add</AppText>
+              </Pressable>
+            </View>
+            <View style={styles.holdingList}>
+              {cryptoHoldings.map((holding) => (
+                <Pressable key={holding.id} style={[styles.holdingRow, { borderColor: colors.border }]} onPress={() => navigation.navigate('AddCryptoHolding', { accountId: editingAccount?.id, holding })}>
+                  <View style={[styles.assetDot, { backgroundColor: holding.color }]} />
+                  <View style={styles.dropdownCopy}>
+                    <AppText style={styles.optionText}>{holding.cryptoSymbol}</AppText>
+                    <AppText variant="caption">{holding.cryptoName}</AppText>
+                  </View>
+                  <View style={styles.holdingAmount}>
+                    <AppText style={styles.optionText}>{holding.quantity}</AppText>
+                    <AppText variant="caption">{formatCurrency(holding.quantity * (holding.priceUsd ?? 0), 'USD')}</AppText>
+                  </View>
+                  <Pressable
+                    style={styles.iconTap}
+                    onPress={() => setCryptoHoldings((currentHoldings) => currentHoldings.filter((item) => item.id !== holding.id))}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                  </Pressable>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <>
             <View style={styles.inputGroup}>
               <AppText variant="caption">Currency</AppText>
               <View style={styles.segment}>
@@ -243,9 +336,7 @@ export function AddAccountScreen() {
                       style={[styles.segmentItem, { backgroundColor: selected ? colors.primary : colors.surface, borderColor: colors.border }]}
                       onPress={() => setCurrency(item)}
                     >
-                      <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentLabel}>
-                        {item}
-                      </AppText>
+                      <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentLabel}>{item}</AppText>
                     </Pressable>
                   );
                 })}
@@ -270,131 +361,137 @@ export function AddAccountScreen() {
               <View style={styles.creditDetails}>
                 <View>
                   <AppText variant="caption">Credit details</AppText>
-                  <AppText variant="body" style={styles.helpText}>
-                    Use a negative current balance for money owed.
-                  </AppText>
+                  <AppText variant="body" style={styles.helpText}>Use a negative current balance for money owed.</AppText>
                 </View>
-                <TextInput
-                  keyboardType="decimal-pad"
-                  placeholder="Credit limit"
-                  placeholderTextColor={colors.muted}
-                  value={creditLimit}
-                  onChangeText={setCreditLimit}
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                />
+                <TextInput keyboardType="decimal-pad" placeholder="Credit limit" placeholderTextColor={colors.muted} value={creditLimit} onChangeText={setCreditLimit} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
                 <View style={styles.inputRow}>
-                  <TextInput
-                    keyboardType="number-pad"
-                    placeholder="Statement day"
-                    placeholderTextColor={colors.muted}
-                    value={statementDay}
-                    onChangeText={setStatementDay}
-                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
-                  />
-                  <TextInput
-                    keyboardType="number-pad"
-                    placeholder="Due day"
-                    placeholderTextColor={colors.muted}
-                    value={paymentDueDay}
-                    onChangeText={setPaymentDueDay}
-                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
-                  />
+                  <TextInput keyboardType="number-pad" placeholder="Statement day" placeholderTextColor={colors.muted} value={statementDay} onChangeText={setStatementDay} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+                  <TextInput keyboardType="number-pad" placeholder="Due day" placeholderTextColor={colors.muted} value={paymentDueDay} onChangeText={setPaymentDueDay} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
                 </View>
                 <View style={styles.inputRow}>
-                  <TextInput
-                    keyboardType="decimal-pad"
-                    placeholder="Minimum payment"
-                    placeholderTextColor={colors.muted}
-                    value={minimumPayment}
-                    onChangeText={setMinimumPayment}
-                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
-                  />
-                  <TextInput
-                    keyboardType="decimal-pad"
-                    placeholder="APR %"
-                    placeholderTextColor={colors.muted}
-                    value={annualInterestRate}
-                    onChangeText={setAnnualInterestRate}
-                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
-                  />
+                  <TextInput keyboardType="decimal-pad" placeholder="Minimum payment" placeholderTextColor={colors.muted} value={minimumPayment} onChangeText={setMinimumPayment} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+                  <TextInput keyboardType="decimal-pad" placeholder="APR %" placeholderTextColor={colors.muted} value={annualInterestRate} onChangeText={setAnnualInterestRate} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
                 </View>
               </View>
             ) : null}
+
+            <View style={styles.inputGroup}>
+              <AppText variant="caption">{`${accountType === 'credit' ? 'Current balance' : 'Opening balance'} (${currency})`}</AppText>
+              <TextInput
+                keyboardType={accountType === 'credit' ? 'numbers-and-punctuation' : 'decimal-pad'}
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={balance}
+                onChangeText={setBalance}
+                style={[styles.amountInput, { borderColor: colors.border, color: colors.text }]}
+              />
+            </View>
           </>
-        ) : (
-          <View style={styles.inputGroup}>
-            <AppText variant="caption">Crypto asset</AppText>
-            <Pressable
-              style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              onPress={() => setIsCryptoDropdownOpen((value) => !value)}
-            >
-              <View style={[styles.assetDot, { backgroundColor: selectedCrypto.color }]} />
-              <View style={styles.dropdownCopy}>
-                <AppText style={styles.optionText}>
-                  {selectedCrypto.symbol} - {selectedCrypto.name}
-                </AppText>
-                <AppText variant="caption">Fallback price {formatCurrency(selectedCrypto.fallbackPriceUsd, 'USD')}</AppText>
-              </View>
-              <Ionicons name={isCryptoDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
-            </Pressable>
-
-            {isCryptoDropdownOpen ? (
-              <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                  {supportedCryptoAssets.map((asset) => (
-                    <Pressable
-                      key={asset.id}
-                      style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
-                      onPress={() => {
-                        setCryptoId(asset.id);
-                        setIsCryptoDropdownOpen(false);
-                      }}
-                    >
-                      <View style={[styles.assetDot, { backgroundColor: asset.color }]} />
-                      <View style={styles.dropdownCopy}>
-                        <AppText style={styles.optionText}>
-                          {asset.symbol} - {asset.name}
-                        </AppText>
-                        <AppText variant="caption">{formatCurrency(asset.fallbackPriceUsd, 'USD')}</AppText>
-                      </View>
-                      {asset.id === cryptoId ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            ) : null}
-          </View>
         )}
-
-        <View style={styles.inputGroup}>
-          <AppText variant="caption">{mode === 'crypto' ? 'Quantity' : `${accountType === 'credit' ? 'Current balance' : 'Opening balance'} (${currency})`}</AppText>
-          <TextInput
-            keyboardType={mode === 'regular' && accountType === 'credit' ? 'numbers-and-punctuation' : 'decimal-pad'}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={balance}
-            onChangeText={setBalance}
-            style={[styles.amountInput, { borderColor: colors.border, color: colors.text }]}
-          />
-        </View>
       </Card>
 
       <PrimaryButton label={editingAccount ? 'Save account' : 'Create account'} icon="checkmark-circle-outline" onPress={handleSubmit} />
       {editingAccount ? (
         <Pressable style={[styles.deleteButton, { borderColor: colors.danger }]} onPress={confirmDelete}>
-          <AppText color={colors.danger} style={styles.deleteLabel}>
-            Delete account
-          </AppText>
+          <AppText color={colors.danger} style={styles.deleteLabel}>Delete account</AppText>
         </Pressable>
       ) : null}
     </Screen>
   );
 }
 
+export function AddCryptoHoldingScreen() {
+  const navigation = useNavigation<CryptoHoldingNavigation>();
+  const route = useRoute<CryptoHoldingRoute>();
+  const { colors } = useAppTheme();
+  const [cryptoId, setCryptoId] = useState<CryptoId>(route.params?.holding?.cryptoId ?? 'bitcoin');
+  const [quantity, setQuantity] = useState(route.params?.holding ? String(route.params.holding.quantity) : '');
+  const [isCryptoDropdownOpen, setIsCryptoDropdownOpen] = useState(false);
+  const selectedCrypto = getCryptoAsset(cryptoId);
+
+  function saveHolding() {
+    const parsedQuantity = parseAmount(quantity);
+
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      Alert.alert('Invalid quantity', 'Enter a crypto quantity greater than zero.');
+      return;
+    }
+
+    const nextHolding: CryptoHolding = {
+      id: route.params?.holding?.id ?? `holding-${Date.now()}`,
+      cryptoId: selectedCrypto.id,
+      cryptoName: selectedCrypto.name,
+      cryptoSymbol: selectedCrypto.symbol,
+      quantity: parsedQuantity,
+      priceUsd: route.params?.holding?.cryptoId === selectedCrypto.id ? route.params.holding.priceUsd ?? selectedCrypto.fallbackPriceUsd : selectedCrypto.fallbackPriceUsd,
+      change24h: route.params?.holding?.cryptoId === selectedCrypto.id ? route.params.holding.change24h : undefined,
+      lastPriceUpdatedAt: route.params?.holding?.cryptoId === selectedCrypto.id ? route.params.holding.lastPriceUpdatedAt : undefined,
+      color: selectedCrypto.color,
+    };
+
+    navigation.navigate('AddAccount', { accountId: route.params?.accountId, cryptoHolding: nextHolding });
+  }
+
+  return (
+    <Screen>
+      <Card style={styles.form}>
+        <View style={styles.inputGroup}>
+          <AppText variant="caption">Crypto asset</AppText>
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setIsCryptoDropdownOpen((value) => !value)}
+          >
+            <View style={[styles.assetDot, { backgroundColor: selectedCrypto.color }]} />
+            <View style={styles.dropdownCopy}>
+              <AppText style={styles.optionText}>{selectedCrypto.symbol} - {selectedCrypto.name}</AppText>
+              <AppText variant="caption">Fallback price {formatCurrency(selectedCrypto.fallbackPriceUsd, 'USD')}</AppText>
+            </View>
+            <Ionicons name={isCryptoDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+          </Pressable>
+
+          {isCryptoDropdownOpen ? (
+            <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {supportedCryptoAssets.map((asset) => (
+                  <Pressable
+                    key={asset.id}
+                    style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                    onPress={() => {
+                      setCryptoId(asset.id);
+                      setIsCryptoDropdownOpen(false);
+                    }}
+                  >
+                    <View style={[styles.assetDot, { backgroundColor: asset.color }]} />
+                    <View style={styles.dropdownCopy}>
+                      <AppText style={styles.optionText}>{asset.symbol} - {asset.name}</AppText>
+                      <AppText variant="caption">{formatCurrency(asset.fallbackPriceUsd, 'USD')}</AppText>
+                    </View>
+                    {asset.id === cryptoId ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <AppText variant="caption">Quantity</AppText>
+          <TextInput
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={quantity}
+            onChangeText={setQuantity}
+            style={[styles.amountInput, { borderColor: colors.border, color: colors.text }]}
+          />
+        </View>
+      </Card>
+      <PrimaryButton label="Save asset" icon="checkmark-circle-outline" onPress={saveHolding} />
+    </Screen>
+  );
+}
+
 const styles = StyleSheet.create({
-  block: {
-    gap: 8,
-  },
   segment: {
     flexDirection: 'row',
     gap: 8,
@@ -437,18 +534,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     paddingVertical: 8,
   },
-  optionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  option: {
-    borderRadius: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 42,
-    paddingHorizontal: 12,
-  },
   optionText: {
     fontWeight: '800',
   },
@@ -480,10 +565,52 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingHorizontal: 12,
   },
+  typeIcon: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
   assetDot: {
     borderRadius: 999,
     height: 14,
     width: 14,
+  },
+  rowHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  smallButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    minHeight: 34,
+    paddingHorizontal: 10,
+  },
+  smallButtonText: {
+    fontWeight: '800',
+  },
+  holdingList: {
+    gap: 10,
+  },
+  holdingRow: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 60,
+    paddingHorizontal: 12,
+  },
+  holdingAmount: {
+    alignItems: 'flex-end',
+  },
+  iconTap: {
+    padding: 8,
   },
   swatches: {
     flexDirection: 'row',

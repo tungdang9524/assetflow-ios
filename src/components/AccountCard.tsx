@@ -16,9 +16,21 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account, convertedBalance }: AccountCardProps) {
+  const cryptoValueUsd = account.cryptoHoldings?.length
+    ? account.cryptoHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
+    : undefined;
   const primaryBalance =
-    account.type === 'crypto' ? formatCryptoAmount(account.balance, account.cryptoSymbol) : formatCurrency(account.balance, account.currency);
-  const typeLabel = account.type === 'crypto' && account.cryptoName ? account.cryptoName : formatAccountType(account.type);
+    account.type === 'crypto'
+      ? cryptoValueUsd !== undefined
+        ? formatCurrency(cryptoValueUsd, 'USD')
+        : formatCryptoAmount(account.balance, account.cryptoSymbol)
+      : formatCurrency(account.balance, account.currency);
+  const typeLabel =
+    account.type === 'crypto' && account.cryptoHoldings?.length
+      ? `${account.cryptoHoldings.length} assets`
+      : account.type === 'crypto' && account.cryptoName
+        ? account.cryptoName
+        : formatAccountType(account.type);
   const creditDebt = account.type === 'credit' ? Math.max(-account.balance, 0) : 0;
   const creditUtilization = account.type === 'credit' && account.creditLimit ? creditDebt / account.creditLimit : 0;
 

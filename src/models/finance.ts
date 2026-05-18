@@ -28,11 +28,24 @@ export interface Account {
   cryptoPriceUsd?: number;
   crypto24hChange?: number;
   lastPriceUpdatedAt?: string;
+  cryptoHoldings?: CryptoHolding[];
   creditLimit?: number;
   statementDay?: number;
   paymentDueDay?: number;
   minimumPayment?: number;
   annualInterestRate?: number;
+}
+
+export interface CryptoHolding {
+  id: string;
+  cryptoId: CryptoId;
+  cryptoName: string;
+  cryptoSymbol: string;
+  quantity: number;
+  priceUsd?: number;
+  change24h?: number;
+  lastPriceUpdatedAt?: string;
+  color: string;
 }
 
 export interface Category {

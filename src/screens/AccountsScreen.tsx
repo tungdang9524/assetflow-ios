@@ -186,7 +186,9 @@ export function AccountsScreen() {
 
   function getConvertedBalance(account: Account) {
     if (account.type === 'crypto') {
-      const usdValue = account.balance * (account.cryptoPriceUsd ?? 0);
+      const usdValue = account.cryptoHoldings?.length
+        ? account.cryptoHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
+        : account.balance * (account.cryptoPriceUsd ?? 0);
       const vndValue = convertCurrency(usdValue, 'USD', 'VND', state.settings.usdToVndRate);
       return `${formatCurrency(usdValue, 'USD')} - ${formatCurrency(vndValue, 'VND')}`;
     }

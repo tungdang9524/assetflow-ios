@@ -485,7 +485,14 @@ export function FinanceProvider({ children }: PropsWithChildren) {
     setIsRefreshingRates(true);
 
     try {
-      const cryptoIds = state.accounts.filter((account) => account.type === 'crypto' && account.cryptoId).map((account) => account.cryptoId!);
+      const cryptoIds = state.accounts.flatMap((account) => {
+        if (account.type !== 'crypto') {
+          return [];
+        }
+
+        const holdingIds = account.cryptoHoldings?.map((holding) => holding.cryptoId) ?? [];
+        return account.cryptoId ? [...holdingIds, account.cryptoId] : holdingIds;
+      });
       const watchIds = state.cryptoWatchlist.map((item) => item.cryptoId);
       const [usdResult, cryptoResult] = await Promise.allSettled([fetchUsdToVndRate(), fetchCryptoPrices([...cryptoIds, ...watchIds])]);
       const updatedAt = new Date().toISOString();
@@ -501,18 +508,38 @@ export function FinanceProvider({ children }: PropsWithChildren) {
         return {
           ...currentState,
           accounts: currentState.accounts.map((account) => {
-            if (account.type !== 'crypto' || !account.cryptoId) {
+            if (account.type !== 'crypto') {
               return account;
+            }
+
+            const nextHoldings = account.cryptoHoldings?.map((holding) => {
+              const holdingPrice = cryptoPrices.find((item) => item.id === holding.cryptoId);
+
+              if (!holdingPrice) {
+                return holding;
+              }
+
+              return {
+                ...holding,
+                priceUsd: holdingPrice.priceUsd,
+                change24h: holdingPrice.change24h,
+                lastPriceUpdatedAt: updatedAt,
+              };
+            });
+
+            if (!account.cryptoId) {
+              return nextHoldings ? { ...account, cryptoHoldings: nextHoldings } : account;
             }
 
             const price = cryptoPrices.find((item) => item.id === account.cryptoId);
 
             if (!price) {
-              return account;
+              return nextHoldings ? { ...account, cryptoHoldings: nextHoldings } : account;
             }
 
             return {
               ...account,
+              cryptoHoldings: nextHoldings,
               cryptoPriceUsd: price.priceUsd,
               crypto24hChange: price.change24h,
               lastPriceUpdatedAt: updatedAt,
