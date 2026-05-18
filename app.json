@@ -6,6 +6,7 @@
     "platforms": [
       "ios"
     ],
+    "icon": "./icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -17,6 +18,7 @@
       "**/*"
     ],
     "ios": {
+      "icon": "./icon.png",
       "supportsTablet": false,
       "bundleIdentifier": "com.assetflow.app",
       "infoPlist": {
