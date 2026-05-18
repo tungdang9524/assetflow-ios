@@ -62,7 +62,7 @@ jobs:
           fi
 
       - name: Start EAS iOS build and wait for artifact
-        run: npx eas build --platform ios --profile "${{ steps.profile.outputs.name }}" --non-interactive --wait --json > eas-build.json
+        run: eas build --platform ios --profile "${{ steps.profile.outputs.name }}" --non-interactive --wait --json > eas-build.json
 
       - name: Extract iOS artifact download URL
         id: artifact
