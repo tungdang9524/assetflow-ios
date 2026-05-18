@@ -15,6 +15,7 @@ import {
   BackupSettingsScreen,
   CategoryDetailSettingsScreen,
   CategorySettingsScreen,
+  InfoSettingsScreen,
   RateSettingsScreen,
   SampleDataSettingsScreen,
   SecuritySettingsScreen,
@@ -107,6 +108,7 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ title: 'Security' }} />
       <SettingsStack.Screen name="BackupSettings" component={BackupSettingsScreen} options={{ title: 'Backup' }} />
       <SettingsStack.Screen name="SampleDataSettings" component={SampleDataSettingsScreen} options={{ title: 'Sample Data' }} />
+      <SettingsStack.Screen name="InfoSettings" component={InfoSettingsScreen} options={{ title: 'Info' }} />
     </SettingsStack.Navigator>
   );
 }

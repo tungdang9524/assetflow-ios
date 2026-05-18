@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ExpoClipboard from 'expo-clipboard/build/ExpoClipboard';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -17,6 +17,7 @@ import { useAppTheme } from '../theme/AppThemeProvider';
 import { formatCurrency } from '../utils/currency';
 
 const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
+const projectRepoUrl = 'https://github.com/tungdang9524/assetflow-ios';
 const expenseCategoryIcons: Array<keyof typeof Ionicons.glyphMap> = [
   'restaurant-outline',
   'bus-outline',
@@ -113,7 +114,61 @@ export function SettingsScreen() {
         />
         <SettingsRow icon="archive-outline" title="Backup" subtitle="Export or import JSON data" onPress={() => navigation.navigate('BackupSettings')} />
         <SettingsRow icon="refresh-outline" title="Sample data" subtitle="Restore starter data" onPress={() => navigation.navigate('SampleDataSettings')} />
+        <SettingsRow icon="information-circle-outline" title="Info" subtitle="Project details and app icon" onPress={() => navigation.navigate('InfoSettings')} />
       </View>
+    </Screen>
+  );
+}
+
+export function InfoSettingsScreen() {
+  const { colors } = useAppTheme();
+
+  function openRepository() {
+    Linking.openURL(projectRepoUrl).catch(() => {
+      Alert.alert('Cannot open link', 'Open the project repository manually from GitHub.');
+    });
+  }
+
+  return (
+    <Screen>
+      <Card style={styles.infoCard}>
+        <Image source={require('../../icon.png')} style={styles.appIcon} />
+        <View style={styles.infoCopy}>
+          <AppText variant="title">AssetFlow</AppText>
+          <AppText variant="caption">Personal finance tracker for accounts, transactions, budgets, planning, reports, and local backup.</AppText>
+        </View>
+      </Card>
+
+      <Card style={styles.card}>
+        <View style={styles.infoRow}>
+          <AppText variant="caption">Made by</AppText>
+          <AppText variant="body" style={styles.value}>
+            Tung Dang
+          </AppText>
+        </View>
+        <View style={styles.infoRow}>
+          <AppText variant="caption">Repository</AppText>
+          <Pressable style={[styles.linkButton, { borderColor: colors.border }]} onPress={openRepository}>
+            <Ionicons name="logo-github" size={18} color={colors.primary} />
+            <AppText color={colors.primary} style={styles.linkText}>
+              {projectRepoUrl}
+            </AppText>
+          </Pressable>
+        </View>
+        <View style={styles.infoRow}>
+          <AppText variant="caption">Icon app</AppText>
+          <AppText variant="body" style={styles.value}>
+            Root asset: icon.png
+          </AppText>
+        </View>
+        <View style={styles.infoRow}>
+          <AppText variant="caption">Mô tả</AppText>
+          <AppText variant="body">
+            AssetFlow helps track money buckets, spending, transfers, budgets, recurring plans, savings goals, debts, and market rates in a simple
+            mobile-first workflow.
+          </AppText>
+        </View>
+      </Card>
     </Screen>
   );
 }
@@ -619,6 +674,35 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: 14,
+  },
+  infoCard: {
+    alignItems: 'center',
+    gap: 14,
+  },
+  appIcon: {
+    borderRadius: 24,
+    height: 96,
+    width: 96,
+  },
+  infoCopy: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoRow: {
+    gap: 6,
+  },
+  linkButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  linkText: {
+    flex: 1,
+    fontWeight: '800',
   },
   field: {
     gap: 8,

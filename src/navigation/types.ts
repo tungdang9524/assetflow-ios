@@ -32,4 +32,5 @@ export type SettingsStackParamList = {
   SecuritySettings: undefined;
   BackupSettings: undefined;
   SampleDataSettings: undefined;
+  InfoSettings: undefined;
 };
