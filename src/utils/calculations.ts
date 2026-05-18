@@ -82,3 +82,36 @@ export function getMonthlyTrend(transactions: Transaction[], usdToVndRate: numbe
     };
   });
 }
+
+function getNetImpactVnd(transaction: Transaction, usdToVndRate: number) {
+  if (transaction.type === 'transfer') {
+    return 0;
+  }
+
+  const value = convertCurrency(transaction.amount, transaction.currency, 'VND', usdToVndRate);
+  return transaction.type === 'income' ? value : -value;
+}
+
+export function getBalanceTrend(accounts: Account[], transactions: Transaction[], usdToVndRate: number, monthCount = 6) {
+  const now = new Date();
+  const currentNetWorth = getNetWorthVnd(accounts, usdToVndRate);
+  const monthlyPoints = Array.from({ length: monthCount }).map((_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1 - index), 1);
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+    const laterImpact = transactions.reduce((sum, transaction) => {
+      if (new Date(transaction.date) <= monthEnd) {
+        return sum;
+      }
+
+      return sum + getNetImpactVnd(transaction, usdToVndRate);
+    }, 0);
+
+    return {
+      monthKey: getMonthKey(date),
+      label: new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date),
+      value: currentNetWorth - laterImpact,
+    };
+  });
+
+  return monthlyPoints;
+}

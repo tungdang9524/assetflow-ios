@@ -7,6 +7,7 @@ export function formatAccountType(type: AccountType) {
     ewallet: 'E-wallet',
     savings: 'Savings',
     foreign: 'Foreign',
+    credit: 'Credit',
     crypto: 'Crypto',
   };
 

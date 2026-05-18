@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -22,6 +22,12 @@ export function AccountsScreen() {
   const { state, refreshMarketRates, isRefreshingRates } = useFinance();
   const { colors } = useAppTheme();
   const netWorth = getNetWorthVnd(state.accounts, state.settings.usdToVndRate);
+
+  function handleRefreshRates() {
+    refreshMarketRates()
+      .then(() => Alert.alert('Rates updated', 'USD/VND and crypto prices were refreshed.'))
+      .catch(() => Alert.alert('Update failed', 'Could not refresh rates right now. Check your internet connection and try again.'));
+  }
 
   function getConvertedBalance(account: (typeof state.accounts)[number]) {
     if (account.type === 'crypto') {
@@ -52,7 +58,7 @@ export function AccountsScreen() {
       <View style={styles.actions}>
         <Pressable
           style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.78 : 1 }]}
-          onPress={() => refreshMarketRates().catch(() => undefined)}
+          onPress={handleRefreshRates}
           disabled={isRefreshingRates}
         >
           <Ionicons name="refresh-outline" size={18} color={colors.primary} />

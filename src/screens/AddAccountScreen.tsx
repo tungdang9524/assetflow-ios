@@ -20,14 +20,15 @@ import { formatAccountType } from '../utils/labels';
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AddAccount'>;
 type Route = RouteProp<AccountsStackParamList, 'AddAccount'>;
 
-const regularAccountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign'];
-const accountColors = ['#50A878', '#3D7BFF', '#F59E0B', '#8B5CF6', '#0891B2', '#D94841'];
+const regularAccountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign', 'credit'];
+const accountColors = ['#50A878', '#3D7BFF', '#F59E0B', '#8B5CF6', '#0891B2', '#D94841', '#7C3AED'];
 const iconsByType: Record<AccountType, string> = {
   cash: 'wallet-outline',
   bank: 'business-outline',
   ewallet: 'phone-portrait-outline',
   savings: 'lock-closed-outline',
   foreign: 'earth-outline',
+  credit: 'card-outline',
   crypto: 'logo-bitcoin',
 };
 
@@ -45,6 +46,11 @@ export function AddAccountScreen() {
   const [color, setColor] = useState(editingAccount?.color ?? accountColors[0]);
   const [cryptoId, setCryptoId] = useState<CryptoId>(editingAccount?.cryptoId ?? 'bitcoin');
   const [isCryptoDropdownOpen, setIsCryptoDropdownOpen] = useState(false);
+  const [creditLimit, setCreditLimit] = useState(editingAccount?.creditLimit ? String(editingAccount.creditLimit) : '');
+  const [statementDay, setStatementDay] = useState(editingAccount?.statementDay ? String(editingAccount.statementDay) : '20');
+  const [paymentDueDay, setPaymentDueDay] = useState(editingAccount?.paymentDueDay ? String(editingAccount.paymentDueDay) : '5');
+  const [minimumPayment, setMinimumPayment] = useState(editingAccount?.minimumPayment ? String(editingAccount.minimumPayment) : '');
+  const [annualInterestRate, setAnnualInterestRate] = useState(editingAccount?.annualInterestRate ? String(editingAccount.annualInterestRate) : '');
   const selectedCrypto = getCryptoAsset(cryptoId);
 
   function parseAmount(value: string) {
@@ -54,7 +60,7 @@ export function AddAccountScreen() {
   function handleSubmit() {
     const parsedBalance = parseAmount(balance);
 
-    if (!Number.isFinite(parsedBalance) || parsedBalance < 0) {
+    if (!Number.isFinite(parsedBalance) || (mode !== 'regular' || accountType !== 'credit') && parsedBalance < 0) {
       Alert.alert('Invalid amount', 'Enter a valid balance or crypto quantity.');
       return;
     }
@@ -72,6 +78,11 @@ export function AddAccountScreen() {
         cryptoName: asset.name,
         cryptoSymbol: asset.symbol,
         cryptoPriceUsd: asset.fallbackPriceUsd,
+        creditLimit: undefined,
+        statementDay: undefined,
+        paymentDueDay: undefined,
+        minimumPayment: undefined,
+        annualInterestRate: undefined,
       } as const;
 
       if (editingAccount) {
@@ -84,6 +95,39 @@ export function AddAccountScreen() {
       return;
     }
 
+    const parsedCreditLimit = parseAmount(creditLimit);
+    const parsedMinimumPayment = minimumPayment.trim() ? parseAmount(minimumPayment) : undefined;
+    const parsedInterestRate = annualInterestRate.trim() ? parseAmount(annualInterestRate) : undefined;
+    const parsedStatementDay = Number(statementDay);
+    const parsedPaymentDueDay = Number(paymentDueDay);
+
+    if (accountType === 'credit') {
+      if (!Number.isFinite(parsedCreditLimit) || parsedCreditLimit <= 0) {
+        Alert.alert('Invalid limit', 'Enter a valid credit limit.');
+        return;
+      }
+
+      if (!Number.isInteger(parsedStatementDay) || parsedStatementDay < 1 || parsedStatementDay > 31) {
+        Alert.alert('Invalid statement day', 'Statement day must be between 1 and 31.');
+        return;
+      }
+
+      if (!Number.isInteger(parsedPaymentDueDay) || parsedPaymentDueDay < 1 || parsedPaymentDueDay > 31) {
+        Alert.alert('Invalid due day', 'Payment due day must be between 1 and 31.');
+        return;
+      }
+
+      if ((parsedMinimumPayment !== undefined && (!Number.isFinite(parsedMinimumPayment) || parsedMinimumPayment < 0)) || (parsedInterestRate !== undefined && (!Number.isFinite(parsedInterestRate) || parsedInterestRate < 0))) {
+        Alert.alert('Invalid credit details', 'Minimum payment and APR must be zero or higher.');
+        return;
+      }
+
+      if (Math.max(-parsedBalance, 0) > parsedCreditLimit) {
+        Alert.alert('Over credit limit', 'Current balance cannot exceed the credit limit.');
+        return;
+      }
+    }
+
     const nextAccount = {
       name: name.trim() || formatAccountType(accountType),
       type: accountType,
@@ -91,6 +135,17 @@ export function AddAccountScreen() {
       balance: parsedBalance,
       icon: iconsByType[accountType],
       color,
+      creditLimit: accountType === 'credit' ? parsedCreditLimit : undefined,
+      statementDay: accountType === 'credit' ? parsedStatementDay : undefined,
+      paymentDueDay: accountType === 'credit' ? parsedPaymentDueDay : undefined,
+      minimumPayment: accountType === 'credit' ? parsedMinimumPayment : undefined,
+      annualInterestRate: accountType === 'credit' ? parsedInterestRate : undefined,
+      cryptoId: undefined,
+      cryptoName: undefined,
+      cryptoSymbol: undefined,
+      cryptoPriceUsd: undefined,
+      crypto24hChange: undefined,
+      lastPriceUpdatedAt: undefined,
     };
 
     if (editingAccount) {
@@ -210,6 +265,61 @@ export function AddAccountScreen() {
                 ))}
               </View>
             </View>
+
+            {accountType === 'credit' ? (
+              <View style={styles.creditDetails}>
+                <View>
+                  <AppText variant="caption">Credit details</AppText>
+                  <AppText variant="body" style={styles.helpText}>
+                    Use a negative current balance for money owed.
+                  </AppText>
+                </View>
+                <TextInput
+                  keyboardType="decimal-pad"
+                  placeholder="Credit limit"
+                  placeholderTextColor={colors.muted}
+                  value={creditLimit}
+                  onChangeText={setCreditLimit}
+                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                />
+                <View style={styles.inputRow}>
+                  <TextInput
+                    keyboardType="number-pad"
+                    placeholder="Statement day"
+                    placeholderTextColor={colors.muted}
+                    value={statementDay}
+                    onChangeText={setStatementDay}
+                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
+                  />
+                  <TextInput
+                    keyboardType="number-pad"
+                    placeholder="Due day"
+                    placeholderTextColor={colors.muted}
+                    value={paymentDueDay}
+                    onChangeText={setPaymentDueDay}
+                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
+                  />
+                </View>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    keyboardType="decimal-pad"
+                    placeholder="Minimum payment"
+                    placeholderTextColor={colors.muted}
+                    value={minimumPayment}
+                    onChangeText={setMinimumPayment}
+                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
+                  />
+                  <TextInput
+                    keyboardType="decimal-pad"
+                    placeholder="APR %"
+                    placeholderTextColor={colors.muted}
+                    value={annualInterestRate}
+                    onChangeText={setAnnualInterestRate}
+                    style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]}
+                  />
+                </View>
+              </View>
+            ) : null}
           </>
         ) : (
           <View style={styles.inputGroup}>
@@ -257,9 +367,9 @@ export function AddAccountScreen() {
         )}
 
         <View style={styles.inputGroup}>
-          <AppText variant="caption">{mode === 'crypto' ? 'Quantity' : `Opening balance (${currency})`}</AppText>
+          <AppText variant="caption">{mode === 'crypto' ? 'Quantity' : `${accountType === 'credit' ? 'Current balance' : 'Opening balance'} (${currency})`}</AppText>
           <TextInput
-            keyboardType="decimal-pad"
+            keyboardType={mode === 'regular' && accountType === 'credit' ? 'numbers-and-punctuation' : 'decimal-pad'}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={balance}
@@ -305,6 +415,13 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     gap: 8,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  flex: {
+    flex: 1,
   },
   input: {
     borderWidth: 1,
@@ -377,6 +494,13 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     height: 34,
     width: 34,
+  },
+  creditDetails: {
+    gap: 10,
+  },
+  helpText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   deleteButton: {
     alignItems: 'center',

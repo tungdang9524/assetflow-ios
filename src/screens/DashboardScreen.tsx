@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '../components/AppText';
+import { BalanceTrendChart } from '../components/BalanceTrendChart';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { Screen } from '../components/Screen';
@@ -10,7 +11,7 @@ import { StatCard } from '../components/StatCard';
 import { TransactionRow } from '../components/TransactionRow';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
-import { getMonthlyTotals, getNetWorthVnd, getTopExpenseCategories } from '../utils/calculations';
+import { getBalanceTrend, getMonthlyTotals, getNetWorthVnd, getTopExpenseCategories } from '../utils/calculations';
 import { compactCurrency, formatCurrency } from '../utils/currency';
 import { formatMonthLabel, getMonthKey } from '../utils/dates';
 
@@ -23,6 +24,7 @@ export function DashboardScreen() {
   const topCategories = getTopExpenseCategories(state.categories, state.transactions, state.settings.usdToVndRate, monthKey);
   const largestSpend = topCategories[0]?.amount ?? 1;
   const recentTransactions = state.transactions.slice(0, 5);
+  const balanceTrend = getBalanceTrend(state.accounts, state.transactions, state.settings.usdToVndRate);
 
   return (
     <Screen>
@@ -50,6 +52,10 @@ export function DashboardScreen() {
         <StatCard label="Expenses" value={compactCurrency(totals.expense, 'VND')} tone="negative" />
       </View>
       <StatCard label="Monthly balance" value={formatCurrency(totals.balance, 'VND')} tone={totals.balance >= 0 ? 'positive' : 'negative'} />
+
+      <Card style={styles.trendCard}>
+        <BalanceTrendChart points={balanceTrend} />
+      </Card>
 
       <SectionHeader title="Spending summary" />
       <Card style={styles.summaryCard}>
@@ -101,6 +107,9 @@ const styles = StyleSheet.create({
   },
   statGrid: {
     flexDirection: 'row',
+    gap: 12,
+  },
+  trendCard: {
     gap: 12,
   },
   summaryCard: {

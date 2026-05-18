@@ -72,7 +72,7 @@ Expo Go runs the JavaScript app from the development server. It is free, works f
 
 ### 2. EAS Build iOS Artifact
 
-EAS Build creates a real iOS build in Expo's cloud. You can trigger it manually with `.github/workflows/eas-ios-build.yml` after setup.
+EAS Build creates a real iOS build in Expo's cloud. `.github/workflows/eas-ios-build.yml` now runs automatically after each push to `main` using the `internal` profile. It also supports manual runs where you can choose `preview`, `internal`, or `production`.
 
 Required setup:
 
@@ -80,7 +80,9 @@ Required setup:
 - Run `npx eas login`.
 - Run `npx eas init` in this repository to link the project.
 - Add `EAS_TOKEN` as a GitHub repository secret.
-- For physical-device or store builds, Apple signing credentials may be required.
+- Configure iOS credentials in EAS. Physical-device IPA builds usually require Apple Developer credentials and registered devices.
+
+After a successful workflow run, open the GitHub Actions run and download the `AssetFlow-internal-ipa` artifact. If the EAS build fails because credentials are missing, configure signing in EAS first and rerun the workflow.
 
 ### 3. TestFlight And App Store Distribution
 
@@ -88,7 +90,7 @@ TestFlight and App Store distribution require an Apple Developer Program account
 
 ### 4. Sideloadly Installation
 
-Sideloadly can install an IPA onto an iPhone, but the IPA still needs valid signing or re-signing. GitHub Actions cannot magically install the app directly onto an iPhone, and it cannot bypass Apple signing requirements.
+Sideloadly and AltStore can install or re-sign an IPA onto an iPhone, but the IPA still needs valid signing or re-signing. GitHub Actions cannot magically install the app directly onto an iPhone, and it cannot bypass Apple signing requirements.
 
 ## EAS Profiles
 
@@ -96,12 +98,21 @@ Sideloadly can install an IPA onto an iPhone, but the IPA still needs valid sign
 - `internal`: internal iOS build. Installing on physical devices may require Apple Developer credentials and registered devices.
 - `production`: store distribution build for TestFlight/App Store workflows.
 
+Automatic GitHub Actions IPA build:
+
+1. Add `EAS_TOKEN` in GitHub repository secrets.
+2. Configure iOS credentials in EAS.
+3. Push to `main`.
+4. Open the completed `EAS iOS Build` workflow run.
+5. Download the uploaded `AssetFlow-internal-ipa` artifact.
+
 Manual GitHub Actions build:
 
 1. Add `EAS_TOKEN` in GitHub repository secrets.
 2. Open the `EAS iOS Build` workflow in GitHub Actions.
 3. Choose `preview`, `internal`, or `production`.
 4. Run the workflow.
+5. Download the uploaded artifact when the build completes. The `preview` simulator profile is useful for cloud checks, but it is not the IPA you would install on a physical iPhone.
 
 ## CI
 

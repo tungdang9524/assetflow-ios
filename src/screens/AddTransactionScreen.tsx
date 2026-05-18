@@ -55,7 +55,7 @@ export function AddTransactionScreen() {
     }
 
     if (!account) {
-      Alert.alert('No money account', 'Create a cash, bank, e-wallet, savings, or USD account first.');
+      Alert.alert('No money account', 'Create a cash, bank, e-wallet, savings, credit, or USD account first.');
       return;
     }
 
@@ -79,14 +79,14 @@ export function AddTransactionScreen() {
       const result = updateTransaction(editingTransaction.id, nextTransaction);
 
       if (!result.ok) {
-        Alert.alert('Insufficient balance', result.error ?? 'This transaction would make the account balance negative.');
+        Alert.alert('Transaction blocked', result.error ?? 'This transaction would make the account balance invalid.');
         return;
       }
     } else {
       const result = addTransaction(nextTransaction);
 
       if (!result.ok) {
-        Alert.alert('Insufficient balance', result.error ?? 'This transaction would make the account balance negative.');
+        Alert.alert('Transaction blocked', result.error ?? 'This transaction would make the account balance invalid.');
         return;
       }
     }

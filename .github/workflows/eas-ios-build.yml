@@ -1,6 +1,9 @@
 name: EAS iOS Build
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       profile:
@@ -13,9 +16,12 @@ on:
           - internal
           - production
 
+permissions:
+  contents: read
+
 jobs:
   eas-ios-build:
-    name: Trigger EAS iOS build
+    name: Build iOS artifact with EAS
     runs-on: ubuntu-latest
 
     steps:
@@ -35,12 +41,71 @@ jobs:
       # 1. Create an Expo account and install the EAS CLI locally.
       # 2. Run `npx eas login`, then `npx eas init` in this repo to link an EAS project.
       # 3. Create an access token and save it in GitHub repository secrets as EAS_TOKEN.
-      # 4. iOS device/store builds may require Apple Developer credentials for signing.
+      # 4. Configure iOS credentials in EAS. Internal/device builds usually require
+      #    Apple Developer credentials and registered devices for valid signing.
+      # 5. Sideloadly/AltStore can install or re-sign an IPA, but this workflow
+      #    does not bypass Apple's signing requirements.
       - name: Setup Expo and EAS
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EAS_TOKEN }}
 
-      - name: Start EAS iOS build
-        run: npx eas build --platform ios --profile "${{ inputs.profile }}" --non-interactive --no-wait
+      - name: Resolve build profile
+        id: profile
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.profile }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=internal" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Start EAS iOS build and wait for artifact
+        run: npx eas build --platform ios --profile "${{ steps.profile.outputs.name }}" --non-interactive --wait --json > eas-build.json
+
+      - name: Extract iOS artifact download URL
+        id: artifact
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const payload = JSON.parse(fs.readFileSync('eas-build.json', 'utf8'));
+          const build = Array.isArray(payload) ? payload[0] : payload;
+          const url =
+            build?.artifacts?.buildUrl ||
+            build?.artifacts?.applicationArchiveUrl ||
+            build?.artifactUrl;
+
+          if (!url) {
+            console.error('No iOS artifact URL found in EAS build output.');
+            process.exit(1);
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `url=${url}\n`);
+          NODE
+
+      - name: Resolve artifact filename
+        id: filename
+        shell: bash
+        run: |
+          if [ "${{ steps.profile.outputs.name }}" = "preview" ]; then
+            echo "name=AssetFlow-preview-ios-simulator-artifact.tar.gz" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=AssetFlow-preview-ios-simulator-artifact" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=AssetFlow-${{ steps.profile.outputs.name }}.ipa" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=AssetFlow-${{ steps.profile.outputs.name }}-ipa" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download iOS artifact
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          curl --fail --location "${{ steps.artifact.outputs.url }}" --output "artifacts/${{ steps.filename.outputs.name }}"
+
+      - name: Upload iOS artifact to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.filename.outputs.artifact_name }}
+          path: artifacts/*
+          if-no-files-found: error

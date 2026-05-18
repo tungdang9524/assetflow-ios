@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,13 +9,52 @@ import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
-import { ThemePreference } from '../models/finance';
+import { CategoryType, ThemePreference } from '../models/finance';
 import { SettingsStackParamList } from '../navigation/types';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
 import { formatCurrency } from '../utils/currency';
 
 const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
+const expenseCategoryIcons: Array<keyof typeof Ionicons.glyphMap> = [
+  'restaurant-outline',
+  'bus-outline',
+  'bag-outline',
+  'receipt-outline',
+  'game-controller-outline',
+  'heart-outline',
+  'school-outline',
+  'home-outline',
+  'car-outline',
+  'shirt-outline',
+  'medical-outline',
+  'cart-outline',
+  'airplane-outline',
+  'ellipsis-horizontal-circle-outline',
+];
+const incomeCategoryIcons: Array<keyof typeof Ionicons.glyphMap> = [
+  'briefcase-outline',
+  'laptop-outline',
+  'gift-outline',
+  'trending-up-outline',
+  'cash-outline',
+  'wallet-outline',
+  'card-outline',
+  'business-outline',
+  'add-circle-outline',
+];
+
+function getCategoryIconOptions(type: CategoryType) {
+  return type === 'income' ? incomeCategoryIcons : expenseCategoryIcons;
+}
+
+function formatIconLabel(icon: keyof typeof Ionicons.glyphMap) {
+  return icon
+    .replace(/-outline$/, '')
+    .split('-')
+    .map((word) => `${word[0].toUpperCase()}${word.slice(1)}`)
+    .join(' ');
+}
 
 type SettingsNavigation = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHome'>;
 type CategoryNavigation = NativeStackNavigationProp<SettingsStackParamList, 'CategorySettings'>;
@@ -99,7 +138,9 @@ export function RateSettingsScreen() {
   }
 
   function handleRefreshRates() {
-    refreshMarketRates().catch(() => {
+    refreshMarketRates().then(() => {
+      Alert.alert('Rates updated', 'USD/VND and crypto prices were refreshed.');
+    }).catch(() => {
       Alert.alert('Update failed', 'Could not refresh rates right now. Check your internet connection and try again.');
     });
   }
@@ -175,7 +216,18 @@ export function CategorySettingsScreen() {
   const { state, addCategory } = useFinance();
   const { colors } = useAppTheme();
   const [categoryName, setCategoryName] = useState('');
-  const [categoryType, setCategoryType] = useState<'expense' | 'income'>('expense');
+  const [categoryType, setCategoryType] = useState<CategoryType>('expense');
+  const [selectedIcon, setSelectedIcon] = useState<keyof typeof Ionicons.glyphMap>(expenseCategoryIcons[0]);
+  const [isIconDropdownOpen, setIsIconDropdownOpen] = useState(false);
+  const iconOptions = getCategoryIconOptions(categoryType);
+
+  useEffect(() => {
+    const options = getCategoryIconOptions(categoryType);
+
+    if (!options.includes(selectedIcon)) {
+      setSelectedIcon(options[0]);
+    }
+  }, [categoryType, selectedIcon]);
 
   function handleAddCategory() {
     if (!categoryName.trim()) {
@@ -186,7 +238,7 @@ export function CategorySettingsScreen() {
     addCategory({
       name: categoryName.trim(),
       type: categoryType,
-      icon: categoryType === 'income' ? 'add-circle-outline' : 'ellipse-outline',
+      icon: selectedIcon,
       color: categoryType === 'income' ? colors.primary : colors.accent,
     });
 
@@ -226,7 +278,14 @@ export function CategorySettingsScreen() {
           {(['expense', 'income'] as const).map((option) => {
             const selected = categoryType === option;
             return (
-              <Pressable key={option} style={[styles.segmentItem, { backgroundColor: selected ? colors.primary : colors.surface, borderColor: colors.border }]} onPress={() => setCategoryType(option)}>
+              <Pressable
+                key={option}
+                style={[styles.segmentItem, { backgroundColor: selected ? colors.primary : colors.surface, borderColor: colors.border }]}
+                onPress={() => {
+                  setCategoryType(option);
+                  setIsIconDropdownOpen(false);
+                }}
+              >
                 <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentLabel}>
                   {option === 'income' ? 'Income' : 'Expense'}
                 </AppText>
@@ -235,6 +294,44 @@ export function CategorySettingsScreen() {
           })}
         </View>
         <TextInput placeholder="Category name" placeholderTextColor={colors.muted} value={categoryName} onChangeText={setCategoryName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
+        <View style={styles.field}>
+          <AppText variant="caption">Icon</AppText>
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setIsIconDropdownOpen((value) => !value)}
+          >
+            <View style={[styles.categoryIcon, { backgroundColor: `${categoryType === 'income' ? colors.primary : colors.accent}20` }]}>
+              <Ionicons name={selectedIcon} size={18} color={categoryType === 'income' ? colors.primary : colors.accent} />
+            </View>
+            <AppText style={styles.rowTitle}>{formatIconLabel(selectedIcon)}</AppText>
+            <Ionicons name={isIconDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+          </Pressable>
+          {isIconDropdownOpen ? (
+            <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {iconOptions.map((icon) => {
+                  const selected = icon === selectedIcon;
+                  return (
+                    <Pressable
+                      key={icon}
+                      style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                      onPress={() => {
+                        setSelectedIcon(icon);
+                        setIsIconDropdownOpen(false);
+                      }}
+                    >
+                      <View style={[styles.categoryIcon, { backgroundColor: `${categoryType === 'income' ? colors.primary : colors.accent}20` }]}>
+                        <Ionicons name={icon} size={18} color={categoryType === 'income' ? colors.primary : colors.accent} />
+                      </View>
+                      <AppText style={styles.rowTitle}>{formatIconLabel(icon)}</AppText>
+                      {selected ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
         <PrimaryButton label="Add category" icon="add-circle-outline" onPress={handleAddCategory} />
       </Card>
 
@@ -567,6 +664,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
+  },
+  dropdownButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 56,
+    paddingHorizontal: 12,
+  },
+  dropdownList: {
+    borderRadius: 14,
+    borderWidth: 1,
+    maxHeight: 260,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 54,
+    paddingHorizontal: 12,
   },
   categoryIconLarge: {
     alignItems: 'center',

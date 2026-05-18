@@ -9,14 +9,14 @@ import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressBar } from '../components/ProgressBar';
 import { Screen } from '../components/Screen';
-import { SectionHeader } from '../components/SectionHeader';
 import { DebtType } from '../models/finance';
 import { PlanningStackParamList } from '../navigation/types';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
-import { formatCurrency } from '../utils/currency';
+import { convertCurrency, formatCurrency } from '../utils/currency';
 
 type Navigation = NativeStackNavigationProp<PlanningStackParamList, 'PlanningHome'>;
+type PlanningSection = 'goals' | 'debts';
 
 function parseAmount(value: string) {
   return Number(value.replace(/,/g, '.'));
@@ -24,16 +24,9 @@ function parseAmount(value: string) {
 
 export function PlanningScreen() {
   const navigation = useNavigation<Navigation>();
-  const {
-    state,
-    addDebt,
-    toggleDebtPaid,
-    deleteDebt,
-    addSavingsGoal,
-    updateSavingsGoal,
-    deleteSavingsGoal,
-  } = useFinance();
+  const { state, addDebt, toggleDebtPaid, deleteDebt, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal } = useFinance();
   const { colors } = useAppTheme();
+  const [activeSection, setActiveSection] = useState<PlanningSection>('goals');
   const [goalName, setGoalName] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
   const [goalCurrent, setGoalCurrent] = useState('');
@@ -43,11 +36,26 @@ export function PlanningScreen() {
   const [debtPerson, setDebtPerson] = useState('');
   const [debtAmount, setDebtAmount] = useState('');
 
+  const goalTargetTotal = state.savingsGoals.reduce(
+    (sum, goal) => sum + convertCurrency(goal.targetAmount, goal.currency, 'VND', state.settings.usdToVndRate),
+    0,
+  );
+  const goalCurrentTotal = state.savingsGoals.reduce(
+    (sum, goal) => sum + convertCurrency(goal.currentAmount, goal.currency, 'VND', state.settings.usdToVndRate),
+    0,
+  );
+  const openDebtTotal = state.debts
+    .filter((debt) => !debt.isPaid)
+    .reduce((sum, debt) => sum + convertCurrency(debt.amount, debt.currency, 'VND', state.settings.usdToVndRate), 0);
+  const creditMinimumDue = state.accounts
+    .filter((account) => account.type === 'credit')
+    .reduce((sum, account) => sum + convertCurrency(account.minimumPayment ?? 0, account.currency, 'VND', state.settings.usdToVndRate), 0);
+
   function addGoal() {
     const target = parseAmount(goalTarget);
     const current = parseAmount(goalCurrent || '0');
 
-    if (!goalName.trim() || !Number.isFinite(target) || target <= 0 || !Number.isFinite(current)) {
+    if (!goalName.trim() || !Number.isFinite(target) || target <= 0 || !Number.isFinite(current) || current < 0) {
       Alert.alert('Invalid goal', 'Enter a goal name and valid target amount.');
       return;
     }
@@ -99,166 +107,242 @@ export function PlanningScreen() {
     setGoalAdjustments((current) => ({ ...current, [goalId]: '' }));
   }
 
+  function renderToolRow(icon: keyof typeof Ionicons.glyphMap, title: string, subtitle: string, onPress: () => void) {
+    return (
+      <Pressable style={({ pressed }) => [styles.toolRow, { borderColor: colors.border, opacity: pressed ? 0.75 : 1 }]} onPress={onPress}>
+        <View style={[styles.toolIcon, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name={icon} size={19} color={colors.primary} />
+        </View>
+        <View style={styles.flex}>
+          <AppText style={styles.itemTitle}>{title}</AppText>
+          <AppText variant="caption">{subtitle}</AppText>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </Pressable>
+    );
+  }
+
   return (
     <Screen>
       <View>
         <AppText variant="caption">Planning</AppText>
-        <AppText variant="title">Future money</AppText>
+        <AppText variant="title">Plan ahead</AppText>
       </View>
 
-      <View style={styles.shortcutRow}>
-        <Pressable style={[styles.shortcut, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => navigation.navigate('Budgets')}>
-          <Ionicons name="pie-chart-outline" size={20} color={colors.primary} />
-          <AppText style={styles.shortcutText}>Budgets</AppText>
-        </Pressable>
-        <Pressable style={[styles.shortcut, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => navigation.navigate('Reports')}>
-          <Ionicons name="bar-chart-outline" size={20} color={colors.primary} />
-          <AppText style={styles.shortcutText}>Reports</AppText>
-        </Pressable>
-        <Pressable style={[styles.shortcut, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => navigation.navigate('Calendar')}>
-          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-          <AppText style={styles.shortcutText}>Calendar</AppText>
-        </Pressable>
-      </View>
+      <Card style={styles.hubCard}>
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryItem}>
+            <AppText variant="caption">Goals saved</AppText>
+            <AppText style={styles.summaryValue}>{formatCurrency(goalCurrentTotal, 'VND')}</AppText>
+          </View>
+          <View style={styles.summaryItem}>
+            <AppText variant="caption">Open debts</AppText>
+            <AppText style={styles.summaryValue}>{formatCurrency(openDebtTotal, 'VND')}</AppText>
+          </View>
+          <View style={styles.summaryItem}>
+            <AppText variant="caption">Credit due</AppText>
+            <AppText style={styles.summaryValue}>{formatCurrency(creditMinimumDue, 'VND')}</AppText>
+          </View>
+        </View>
+        <ProgressBar percent={goalTargetTotal <= 0 ? 0 : goalCurrentTotal / goalTargetTotal} />
+        <View style={styles.toolList}>
+          {renderToolRow('pie-chart-outline', 'Budgets', 'Category limits for this month', () => navigation.navigate('Budgets'))}
+          {renderToolRow('calendar-outline', 'Calendar', 'Daily income, expenses, and transfers', () => navigation.navigate('Calendar'))}
+          {renderToolRow('bar-chart-outline', 'Reports', 'Trends and category breakdowns', () => navigation.navigate('Reports'))}
+        </View>
+      </Card>
 
-      <SectionHeader title="Savings goals" />
-      <Card style={styles.card}>
-        <View style={styles.formHeader}>
-          <Ionicons name="flag-outline" size={20} color={colors.primary} />
-          <AppText style={styles.itemTitle}>New goal</AppText>
-        </View>
-        <TextInput placeholder="Goal name" placeholderTextColor={colors.muted} value={goalName} onChangeText={setGoalName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
-        <View style={styles.inputRow}>
-          <TextInput placeholder="Target" placeholderTextColor={colors.muted} value={goalTarget} onChangeText={setGoalTarget} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-          <TextInput placeholder="Current" placeholderTextColor={colors.muted} value={goalCurrent} onChangeText={setGoalCurrent} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-        </View>
-        <PrimaryButton label="Add goal" icon="flag-outline" onPress={addGoal} />
-        {state.savingsGoals.map((goal) => {
-          const percent = goal.targetAmount <= 0 ? 0 : goal.currentAmount / goal.targetAmount;
-          const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
+      <View style={styles.segment}>
+        {(['goals', 'debts'] as PlanningSection[]).map((item) => {
+          const selected = activeSection === item;
           return (
-            <View key={goal.id} style={[styles.goalItem, { borderColor: colors.border }]}>
-              <View style={styles.goalTop}>
-                <View style={[styles.goalIcon, { backgroundColor: `${goal.color}20` }]}>
-                  <Ionicons name="flag" size={18} color={goal.color} />
-                </View>
-                <View style={styles.flex}>
-                  <AppText style={styles.itemTitle}>{goal.name}</AppText>
-                  <AppText variant="caption">{Math.round(Math.min(percent, 1) * 100)}% complete</AppText>
-                </View>
-                <Pressable style={styles.iconTap} onPress={() => deleteSavingsGoal(goal.id)}>
-                  <Ionicons name="trash-outline" size={19} color={colors.danger} />
-                </Pressable>
-              </View>
-              <ProgressBar percent={percent} color={goal.color} />
-              <View style={styles.goalStats}>
-                <View>
-                  <AppText variant="caption">Saved</AppText>
-                  <AppText style={styles.itemTitle}>{formatCurrency(goal.currentAmount, goal.currency)}</AppText>
-                </View>
-                <View style={styles.goalStatRight}>
-                  <AppText variant="caption">Remaining</AppText>
-                  <AppText style={styles.itemTitle}>{formatCurrency(remaining, goal.currency)}</AppText>
-                </View>
-              </View>
-              <View style={styles.quickActions}>
-                <TextInput
-                  placeholder="Amount"
-                  placeholderTextColor={colors.muted}
-                  value={goalAdjustments[goal.id] ?? ''}
-                  onChangeText={(value) => setGoalAdjustments((current) => ({ ...current, [goal.id]: value }))}
-                  keyboardType="decimal-pad"
-                  style={[styles.adjustInput, { borderColor: colors.border, color: colors.text }]}
-                />
-                <Pressable style={[styles.adjustButton, { backgroundColor: colors.primary }]} onPress={() => adjustGoal(goal.id, 1)}>
-                  <Ionicons name="add" size={18} color="#FFFFFF" />
-                  <AppText color="#FFFFFF" style={styles.adjustText}>Add</AppText>
-                </Pressable>
-                <Pressable style={[styles.adjustButton, { backgroundColor: colors.danger }]} onPress={() => adjustGoal(goal.id, -1)}>
-                  <Ionicons name="remove" size={18} color="#FFFFFF" />
-                  <AppText color="#FFFFFF" style={styles.adjustText}>Remove</AppText>
-                </Pressable>
-              </View>
-            </View>
+            <Pressable
+              key={item}
+              style={[styles.segmentItem, { borderColor: colors.border, backgroundColor: selected ? colors.primary : colors.surface }]}
+              onPress={() => setActiveSection(item)}
+            >
+              <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentText}>
+                {item === 'goals' ? 'Savings Goals' : 'Debts & Loans'}
+              </AppText>
+            </Pressable>
           );
         })}
-      </Card>
+      </View>
 
-      <SectionHeader title="Debts and loans" />
-      <Card style={styles.card}>
-        <View style={styles.segment}>
-          {(['lent', 'borrowed'] as DebtType[]).map((item) => {
-            const selected = debtType === item;
-            return (
-              <Pressable key={item} style={[styles.segmentItem, { borderColor: colors.border, backgroundColor: selected ? colors.primary : colors.surface }]} onPress={() => setDebtType(item)}>
-                <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentText}>{item === 'lent' ? 'Lent' : 'Borrowed'}</AppText>
-              </Pressable>
-            );
-          })}
-        </View>
-        <TextInput placeholder="Label" placeholderTextColor={colors.muted} value={debtName} onChangeText={setDebtName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
-        <View style={styles.inputRow}>
-          <TextInput placeholder="Person" placeholderTextColor={colors.muted} value={debtPerson} onChangeText={setDebtPerson} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-          <TextInput placeholder="Amount" placeholderTextColor={colors.muted} value={debtAmount} onChangeText={setDebtAmount} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-        </View>
-        <PrimaryButton label="Add debt" icon="person-add-outline" onPress={addDebtItem} />
-        {state.debts.map((debt) => (
-          <View key={debt.id} style={[styles.debtCard, { borderColor: debt.isPaid ? colors.border : debt.type === 'lent' ? colors.primary : colors.warning }]}>
-            <View style={styles.goalTop}>
-              <View style={[styles.goalIcon, { backgroundColor: debt.type === 'lent' ? colors.primarySoft : `${colors.warning}20` }]}>
-                <Ionicons name={debt.type === 'lent' ? 'arrow-up-outline' : 'arrow-down-outline'} size={18} color={debt.type === 'lent' ? colors.primary : colors.warning} />
-              </View>
-              <Pressable style={styles.flex} onPress={() => toggleDebtPaid(debt.id)}>
-                <AppText style={[styles.itemTitle, debt.isPaid ? styles.paid : undefined]}>{debt.name}</AppText>
-                <AppText variant="caption">
-                  {debt.type === 'lent' ? 'Lent to' : 'Borrowed from'} {debt.person}
-                </AppText>
-              </Pressable>
-              <Pressable style={styles.iconTap} onPress={() => deleteDebt(debt.id)}>
-                <Ionicons name="trash-outline" size={19} color={colors.danger} />
-              </Pressable>
+      {activeSection === 'goals' ? (
+        <Card style={styles.card}>
+          <View style={styles.panelHeader}>
+            <View style={[styles.toolIcon, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="flag-outline" size={19} color={colors.primary} />
             </View>
-            <View style={styles.debtFooter}>
-              <AppText style={styles.itemTitle}>{formatCurrency(debt.amount, debt.currency)}</AppText>
-              <Pressable style={[styles.statusPill, { borderColor: debt.isPaid ? colors.primary : colors.border }]} onPress={() => toggleDebtPaid(debt.id)}>
-                <AppText variant="caption" color={debt.isPaid ? colors.primary : colors.muted}>
-                  {debt.isPaid ? 'Paid' : 'Open'}
-                </AppText>
-              </Pressable>
+            <View style={styles.flex}>
+              <AppText variant="heading">Savings goals</AppText>
+              <AppText variant="caption">Track targets and update saved amounts.</AppText>
             </View>
           </View>
-        ))}
-      </Card>
+          <TextInput placeholder="Goal name" placeholderTextColor={colors.muted} value={goalName} onChangeText={setGoalName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
+          <View style={styles.inputRow}>
+            <TextInput placeholder="Target" placeholderTextColor={colors.muted} value={goalTarget} onChangeText={setGoalTarget} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+            <TextInput placeholder="Current" placeholderTextColor={colors.muted} value={goalCurrent} onChangeText={setGoalCurrent} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+          </View>
+          <PrimaryButton label="Add goal" icon="flag-outline" onPress={addGoal} />
+
+          <View style={styles.itemList}>
+            {state.savingsGoals.map((goal) => {
+              const percent = goal.targetAmount <= 0 ? 0 : goal.currentAmount / goal.targetAmount;
+              const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
+              return (
+                <View key={goal.id} style={[styles.goalItem, { borderColor: colors.border }]}>
+                  <View style={styles.itemTop}>
+                    <View style={[styles.goalIcon, { backgroundColor: `${goal.color}20` }]}>
+                      <Ionicons name="flag" size={18} color={goal.color} />
+                    </View>
+                    <View style={styles.flex}>
+                      <AppText style={styles.itemTitle}>{goal.name}</AppText>
+                      <AppText variant="caption">{Math.round(Math.min(percent, 1) * 100)}% complete</AppText>
+                    </View>
+                    <Pressable style={styles.iconTap} onPress={() => deleteSavingsGoal(goal.id)}>
+                      <Ionicons name="trash-outline" size={19} color={colors.danger} />
+                    </Pressable>
+                  </View>
+                  <ProgressBar percent={percent} color={goal.color} />
+                  <View style={styles.goalStats}>
+                    <View>
+                      <AppText variant="caption">Saved</AppText>
+                      <AppText style={styles.itemTitle}>{formatCurrency(goal.currentAmount, goal.currency)}</AppText>
+                    </View>
+                    <View style={styles.goalStatRight}>
+                      <AppText variant="caption">Remaining</AppText>
+                      <AppText style={styles.itemTitle}>{formatCurrency(remaining, goal.currency)}</AppText>
+                    </View>
+                  </View>
+                  <View style={styles.quickActions}>
+                    <TextInput
+                      placeholder="Amount"
+                      placeholderTextColor={colors.muted}
+                      value={goalAdjustments[goal.id] ?? ''}
+                      onChangeText={(value) => setGoalAdjustments((current) => ({ ...current, [goal.id]: value }))}
+                      keyboardType="decimal-pad"
+                      style={[styles.adjustInput, { borderColor: colors.border, color: colors.text }]}
+                    />
+                    <Pressable style={[styles.adjustButton, { backgroundColor: colors.primary }]} onPress={() => adjustGoal(goal.id, 1)}>
+                      <Ionicons name="add" size={18} color="#FFFFFF" />
+                      <AppText color="#FFFFFF" style={styles.adjustText}>Add</AppText>
+                    </Pressable>
+                    <Pressable style={[styles.adjustButton, { backgroundColor: colors.danger }]} onPress={() => adjustGoal(goal.id, -1)}>
+                      <Ionicons name="remove" size={18} color="#FFFFFF" />
+                      <AppText color="#FFFFFF" style={styles.adjustText}>Remove</AppText>
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </Card>
+      ) : (
+        <Card style={styles.card}>
+          <View style={styles.panelHeader}>
+            <View style={[styles.toolIcon, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="people-outline" size={19} color={colors.primary} />
+            </View>
+            <View style={styles.flex}>
+              <AppText variant="heading">Debts & loans</AppText>
+              <AppText variant="caption">Record money owed to you or by you.</AppText>
+            </View>
+          </View>
+          <View style={styles.segment}>
+            {(['lent', 'borrowed'] as DebtType[]).map((item) => {
+              const selected = debtType === item;
+              return (
+                <Pressable key={item} style={[styles.segmentItem, { borderColor: colors.border, backgroundColor: selected ? colors.primary : colors.surface }]} onPress={() => setDebtType(item)}>
+                  <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentText}>{item === 'lent' ? 'Lent' : 'Borrowed'}</AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <TextInput placeholder="Label" placeholderTextColor={colors.muted} value={debtName} onChangeText={setDebtName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
+          <View style={styles.inputRow}>
+            <TextInput placeholder="Person" placeholderTextColor={colors.muted} value={debtPerson} onChangeText={setDebtPerson} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+            <TextInput placeholder="Amount" placeholderTextColor={colors.muted} value={debtAmount} onChangeText={setDebtAmount} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+          </View>
+          <PrimaryButton label="Add debt" icon="person-add-outline" onPress={addDebtItem} />
+
+          <View style={styles.itemList}>
+            {state.debts.map((debt) => (
+              <View key={debt.id} style={[styles.debtCard, { borderColor: debt.isPaid ? colors.border : debt.type === 'lent' ? colors.primary : colors.warning }]}>
+                <View style={styles.itemTop}>
+                  <View style={[styles.goalIcon, { backgroundColor: debt.type === 'lent' ? colors.primarySoft : `${colors.warning}20` }]}>
+                    <Ionicons name={debt.type === 'lent' ? 'arrow-up-outline' : 'arrow-down-outline'} size={18} color={debt.type === 'lent' ? colors.primary : colors.warning} />
+                  </View>
+                  <Pressable style={styles.flex} onPress={() => toggleDebtPaid(debt.id)}>
+                    <AppText style={[styles.itemTitle, debt.isPaid ? styles.paid : undefined]}>{debt.name}</AppText>
+                    <AppText variant="caption">
+                      {debt.type === 'lent' ? 'Lent to' : 'Borrowed from'} {debt.person}
+                    </AppText>
+                  </Pressable>
+                  <Pressable style={styles.iconTap} onPress={() => deleteDebt(debt.id)}>
+                    <Ionicons name="trash-outline" size={19} color={colors.danger} />
+                  </Pressable>
+                </View>
+                <View style={styles.debtFooter}>
+                  <AppText style={styles.itemTitle}>{formatCurrency(debt.amount, debt.currency)}</AppText>
+                  <Pressable style={[styles.statusPill, { borderColor: debt.isPaid ? colors.primary : colors.border }]} onPress={() => toggleDebtPaid(debt.id)}>
+                    <AppText variant="caption" color={debt.isPaid ? colors.primary : colors.muted}>
+                      {debt.isPaid ? 'Paid' : 'Open'}
+                    </AppText>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Card>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  hubCard: {
+    gap: 16,
+  },
   card: {
     gap: 14,
   },
-  shortcutRow: {
+  summaryGrid: {
     flexDirection: 'row',
     gap: 10,
   },
-  shortcut: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
+  summaryItem: {
     flex: 1,
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'center',
-    minHeight: 50,
+    gap: 4,
   },
-  shortcutText: {
+  summaryValue: {
+    fontSize: 14,
     fontWeight: '800',
-    fontSize: 12,
   },
-  formHeader: {
+  toolList: {
+    gap: 8,
+  },
+  toolRow: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 58,
+    paddingHorizontal: 12,
+  },
+  toolIcon: {
+    alignItems: 'center',
+    borderRadius: 13,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
+  panelHeader: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   input: {
     borderRadius: 14,
@@ -274,8 +358,8 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  listItem: {
-    gap: 8,
+  itemList: {
+    gap: 12,
   },
   goalItem: {
     borderRadius: 16,
@@ -283,7 +367,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
   },
-  goalTop: {
+  itemTop: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
@@ -297,19 +381,14 @@ const styles = StyleSheet.create({
   },
   goalStats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: 12,
+    justifyContent: 'space-between',
   },
   goalStatRight: {
     alignItems: 'flex-end',
   },
   iconTap: {
     padding: 8,
-  },
-  listHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
   },
   itemTitle: {
     fontWeight: '800',
@@ -337,17 +416,6 @@ const styles = StyleSheet.create({
   },
   adjustText: {
     fontWeight: '800',
-  },
-  optionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
   },
   paid: {
     opacity: 0.45,

@@ -6,6 +6,12 @@ interface ExchangeRateResponse {
   };
 }
 
+interface CurrencyApiResponse {
+  usd?: {
+    vnd?: number;
+  };
+}
+
 interface CoinGeckoPrice {
   usd?: number;
   usd_24h_change?: number;
@@ -20,20 +26,35 @@ export interface CryptoPrice {
 }
 
 export async function fetchUsdToVndRate() {
-  const response = await fetch('https://open.er-api.com/v6/latest/USD');
+  try {
+    const primaryResponse = await fetch('https://open.er-api.com/v6/latest/USD');
 
-  if (!response.ok) {
+    if (primaryResponse.ok) {
+      const data = (await primaryResponse.json()) as ExchangeRateResponse;
+      const rate = data.rates?.VND;
+
+      if (rate && Number.isFinite(rate)) {
+        return rate;
+      }
+    }
+  } catch {
+    // Try the secondary public endpoint below.
+  }
+
+  const fallbackResponse = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+
+  if (!fallbackResponse.ok) {
     throw new Error('Unable to fetch USD/VND rate');
   }
 
-  const data = (await response.json()) as ExchangeRateResponse;
-  const rate = data.rates?.VND;
+  const fallbackData = (await fallbackResponse.json()) as CurrencyApiResponse;
+  const fallbackRate = fallbackData.usd?.vnd;
 
-  if (!rate || !Number.isFinite(rate)) {
+  if (!fallbackRate || !Number.isFinite(fallbackRate)) {
     throw new Error('USD/VND rate is missing from response');
   }
 
-  return rate;
+  return fallbackRate;
 }
 
 export async function fetchCryptoPrices(ids: CryptoId[]) {
@@ -42,7 +63,7 @@ export async function fetchCryptoPrices(ids: CryptoId[]) {
   }
 
   const uniqueIds = Array.from(new Set(ids));
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${uniqueIds.join(',')}&vs_currencies=usd&include_24hr_change=true`;
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${uniqueIds.join(',')}&vs_currencies=usd&include_24hr_change=true&x=${Date.now()}`;
   const response = await fetch(url);
 
   if (!response.ok) {

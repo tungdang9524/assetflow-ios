@@ -8,6 +8,7 @@ import { formatAccountType } from '../utils/labels';
 import { AppText } from './AppText';
 import { Card } from './Card';
 import { IconBadge } from './IconBadge';
+import { ProgressBar } from './ProgressBar';
 
 interface AccountCardProps {
   account: Account;
@@ -18,6 +19,8 @@ export function AccountCard({ account, convertedBalance }: AccountCardProps) {
   const primaryBalance =
     account.type === 'crypto' ? formatCryptoAmount(account.balance, account.cryptoSymbol) : formatCurrency(account.balance, account.currency);
   const typeLabel = account.type === 'crypto' && account.cryptoName ? account.cryptoName : formatAccountType(account.type);
+  const creditDebt = account.type === 'credit' ? Math.max(-account.balance, 0) : 0;
+  const creditUtilization = account.type === 'credit' && account.creditLimit ? creditDebt / account.creditLimit : 0;
 
   return (
     <Card style={styles.card}>
@@ -36,12 +39,28 @@ export function AccountCard({ account, convertedBalance }: AccountCardProps) {
           {convertedBalance ? <AppText variant="caption">{convertedBalance}</AppText> : null}
         </View>
       </View>
+      {account.type === 'credit' ? (
+        <View style={styles.creditBlock}>
+          <View style={styles.creditLine}>
+            <AppText variant="caption">Used {formatCurrency(creditDebt, account.currency)}</AppText>
+            <AppText variant="caption">
+              Limit {account.creditLimit ? formatCurrency(account.creditLimit, account.currency) : 'Not set'}
+            </AppText>
+          </View>
+          <ProgressBar percent={creditUtilization} color={account.color} />
+          <View style={styles.creditLine}>
+            <AppText variant="caption">Statement day {account.statementDay ?? '-'}</AppText>
+            <AppText variant="caption">Due day {account.paymentDueDay ?? '-'}</AppText>
+          </View>
+        </View>
+      ) : null}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    gap: 12,
     padding: 14,
   },
   row: {
@@ -62,5 +81,13 @@ const styles = StyleSheet.create({
   },
   balance: {
     fontWeight: '800',
+  },
+  creditBlock: {
+    gap: 8,
+  },
+  creditLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
   },
 });

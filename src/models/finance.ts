@@ -1,6 +1,6 @@
 export type CurrencyCode = 'VND' | 'USD';
 
-export type AccountType = 'cash' | 'bank' | 'ewallet' | 'savings' | 'foreign' | 'crypto';
+export type AccountType = 'cash' | 'bank' | 'ewallet' | 'savings' | 'foreign' | 'credit' | 'crypto';
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
 
@@ -28,6 +28,11 @@ export interface Account {
   cryptoPriceUsd?: number;
   crypto24hChange?: number;
   lastPriceUpdatedAt?: string;
+  creditLimit?: number;
+  statementDay?: number;
+  paymentDueDay?: number;
+  minimumPayment?: number;
+  annualInterestRate?: number;
 }
 
 export interface Category {

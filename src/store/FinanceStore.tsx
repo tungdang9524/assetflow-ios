@@ -4,6 +4,7 @@ import { createSampleState } from '../data/sampleData';
 import {
   Account,
   AppSettings,
+  Budget,
   Category,
   CryptoWatchItem,
   Debt,
@@ -29,6 +30,9 @@ interface FinanceContextValue {
   addCategory: (category: Omit<Category, 'id'>) => void;
   updateCategory: (categoryId: string, updates: Partial<Category>) => void;
   deleteCategory: (categoryId: string) => boolean;
+  addBudget: (budget: Omit<Budget, 'id'>) => void;
+  updateBudget: (budgetId: string, updates: Partial<Budget>) => void;
+  deleteBudget: (budgetId: string) => void;
   addRecurringTransaction: (recurring: Omit<RecurringTransaction, 'id' | 'nextRunAt' | 'interval' | 'isActive'>) => void;
   toggleRecurringTransaction: (recurringId: string) => void;
   deleteRecurringTransaction: (recurringId: string) => void;
@@ -98,8 +102,26 @@ function applyTransactionDelta(accounts: Account[], transaction: Transaction, us
   });
 }
 
-function validateNonNegativeAccounts(accounts: Account[]) {
-  return accounts.every((account) => account.type === 'crypto' || account.balance >= 0);
+function getAccountBalanceError(accounts: Account[]) {
+  const overdrawnAccount = accounts.find((account) => account.type !== 'crypto' && account.type !== 'credit' && account.balance < 0);
+
+  if (overdrawnAccount) {
+    return `${overdrawnAccount.name} cannot go below zero.`;
+  }
+
+  const overLimitAccount = accounts.find((account) => {
+    if (account.type !== 'credit' || !account.creditLimit || account.creditLimit <= 0) {
+      return false;
+    }
+
+    return Math.max(-account.balance, 0) > account.creditLimit;
+  });
+
+  if (overLimitAccount) {
+    return `${overLimitAccount.name} would exceed its credit limit.`;
+  }
+
+  return undefined;
 }
 
 function getNextMonthlyRun(dayOfMonth: number, fromDate = new Date()) {
@@ -200,8 +222,10 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       };
       const nextAccounts = applyTransactionToAccounts(currentState.accounts, transaction, currentState.settings.usdToVndRate);
 
-      if (!validateNonNegativeAccounts(nextAccounts)) {
-        result = { ok: false, error: 'This transaction would make an account balance negative.' };
+      const balanceError = getAccountBalanceError(nextAccounts);
+
+      if (balanceError) {
+        result = { ok: false, error: balanceError };
         return currentState;
       }
 
@@ -230,8 +254,10 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       const accountsWithoutExisting = applyTransactionDelta(currentState.accounts, existing, currentState.settings.usdToVndRate, -1);
       const nextAccounts = applyTransactionDelta(accountsWithoutExisting, updatedTransaction, currentState.settings.usdToVndRate, 1);
 
-      if (!validateNonNegativeAccounts(nextAccounts)) {
-        result = { ok: false, error: 'This transaction would make an account balance negative.' };
+      const balanceError = getAccountBalanceError(nextAccounts);
+
+      if (balanceError) {
+        result = { ok: false, error: balanceError };
         return currentState;
       }
 
@@ -298,6 +324,38 @@ export function FinanceProvider({ children }: PropsWithChildren) {
     });
 
     return didDelete;
+  }, []);
+
+  const addBudget = useCallback((budget: Omit<Budget, 'id'>) => {
+    setState((currentState) => {
+      const existing = currentState.budgets.find((item) => item.month === budget.month && item.categoryId === budget.categoryId);
+
+      if (existing) {
+        return {
+          ...currentState,
+          budgets: currentState.budgets.map((item) => (item.id === existing.id ? { ...item, ...budget } : item)),
+        };
+      }
+
+      return {
+        ...currentState,
+        budgets: [{ ...budget, id: `budget-${Date.now()}` }, ...currentState.budgets],
+      };
+    });
+  }, []);
+
+  const updateBudget = useCallback((budgetId: string, updates: Partial<Budget>) => {
+    setState((currentState) => ({
+      ...currentState,
+      budgets: currentState.budgets.map((budget) => (budget.id === budgetId ? { ...budget, ...updates, id: budget.id } : budget)),
+    }));
+  }, []);
+
+  const deleteBudget = useCallback((budgetId: string) => {
+    setState((currentState) => ({
+      ...currentState,
+      budgets: currentState.budgets.filter((budget) => budget.id !== budgetId),
+    }));
   }, []);
 
   const addRecurringTransaction = useCallback((recurring: Omit<RecurringTransaction, 'id' | 'nextRunAt' | 'interval' | 'isActive'>) => {
@@ -496,7 +554,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
         };
 
         accounts = applyTransactionDelta(accounts, transaction, currentState.settings.usdToVndRate, 1);
-        if (!validateNonNegativeAccounts(accounts)) {
+        if (getAccountBalanceError(accounts)) {
           accounts = currentState.accounts;
           return recurring;
         }
@@ -556,6 +614,9 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       addCategory,
       updateCategory,
       deleteCategory,
+      addBudget,
+      updateBudget,
+      deleteBudget,
       addRecurringTransaction,
       toggleRecurringTransaction,
       deleteRecurringTransaction,
@@ -574,6 +635,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
     }),
     [
       addAccount,
+      addBudget,
       addCategory,
       addCryptoWatchItem,
       addDebt,
@@ -581,6 +643,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       addSavingsGoal,
       addTransaction,
       deleteAccount,
+      deleteBudget,
       deleteCategory,
       deleteCryptoWatchItem,
       deleteDebt,
@@ -596,6 +659,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       toggleDebtPaid,
       toggleRecurringTransaction,
       updateAccount,
+      updateBudget,
       updateCategory,
       updateSavingsGoal,
       updateSettings,
