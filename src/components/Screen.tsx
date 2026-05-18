@@ -14,7 +14,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
   if (!scroll) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <View style={styles.content}>{children}</View>
+        <View style={[styles.content, styles.fixedContent]}>{children}</View>
       </SafeAreaView>
     );
   }
@@ -37,5 +37,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 28,
     gap: 16,
+  },
+  fixedContent: {
+    flex: 1,
   },
 });

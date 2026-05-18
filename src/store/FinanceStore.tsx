@@ -23,7 +23,7 @@ interface FinanceContextValue {
   isRefreshingRates: boolean;
   addAccount: (account: Omit<Account, 'id'>) => void;
   updateAccount: (accountId: string, updates: Partial<Account>) => void;
-  moveAccount: (accountId: string, direction: 'up' | 'down') => void;
+  reorderAccounts: (accountIds: string[]) => void;
   deleteAccount: (accountId: string) => boolean;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => TransactionMutationResult;
   updateTransaction: (transactionId: string, updates: Omit<Transaction, 'id'>) => TransactionMutationResult;
@@ -188,22 +188,20 @@ export function FinanceProvider({ children }: PropsWithChildren) {
     }));
   }, []);
 
-  const moveAccount = useCallback((accountId: string, direction: 'up' | 'down') => {
+  const reorderAccounts = useCallback((accountIds: string[]) => {
     setState((currentState) => {
-      const currentIndex = currentState.accounts.findIndex((account) => account.id === accountId);
-      const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      const accountsById = new Map(currentState.accounts.map((account) => [account.id, account]));
+      const orderedAccounts = accountIds
+        .map((accountId) => accountsById.get(accountId))
+        .filter((account): account is Account => Boolean(account));
 
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentState.accounts.length) {
+      if (orderedAccounts.length !== currentState.accounts.length) {
         return currentState;
       }
 
-      const accounts = [...currentState.accounts];
-      const [account] = accounts.splice(currentIndex, 1);
-      accounts.splice(nextIndex, 0, account);
-
       return {
         ...currentState,
-        accounts,
+        accounts: orderedAccounts,
       };
     });
   }, []);
@@ -628,7 +626,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       isRefreshingRates,
       addAccount,
       updateAccount,
-      moveAccount,
+      reorderAccounts,
       deleteAccount,
       addTransaction,
       updateTransaction,
@@ -675,7 +673,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       importState,
       isReady,
       isRefreshingRates,
-      moveAccount,
+      reorderAccounts,
       refreshMarketRates,
       resetSampleData,
       state,
