@@ -79,7 +79,7 @@ Required setup:
 - Create an Expo account.
 - Run `npx eas login`.
 - Run `npx eas init` in this repository to link the project.
-- Add `EAS_TOKEN` as a GitHub repository secret.
+- Add `EXPO_TOKEN` as a GitHub repository secret.
 - Configure iOS credentials in EAS. Physical-device IPA builds usually require Apple Developer credentials and registered devices.
 
 After a successful workflow run, open the GitHub Actions run and download the `AssetFlow-internal-ipa` artifact. If the EAS build fails because credentials are missing, configure signing in EAS first and rerun the workflow.
@@ -100,7 +100,7 @@ Sideloadly and AltStore can install or re-sign an IPA onto an iPhone, but the IP
 
 Automatic GitHub Actions IPA build:
 
-1. Add `EAS_TOKEN` in GitHub repository secrets.
+1. Add `EXPO_TOKEN` in GitHub repository secrets.
 2. Configure iOS credentials in EAS.
 3. Push to `main`.
 4. Open the completed `EAS iOS Build` workflow run.
@@ -108,7 +108,7 @@ Automatic GitHub Actions IPA build:
 
 Manual GitHub Actions build:
 
-1. Add `EAS_TOKEN` in GitHub repository secrets.
+1. Add `EXPO_TOKEN` in GitHub repository secrets.
 2. Open the `EAS iOS Build` workflow in GitHub Actions.
 3. Choose `preview`, `internal`, or `production`.
 4. Run the workflow.
