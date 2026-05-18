@@ -1,14 +1,13 @@
-name: Build unsigned iOS IPA
+name: Build Unsigned iOS IPA
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  build-ios:
-    runs-on: macos-15
+  build-unsigned-ipa:
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -17,39 +16,32 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate iOS project
+      - name: Generate iOS native project
         run: npx expo prebuild --platform ios --clean
 
-      - name: Install CocoaPods
-        working-directory: ios
-        run: pod install
-
-      - name: Find workspace and scheme
-        id: vars
+      - name: Install CocoaPods dependencies
         run: |
-          WORKSPACE=$(find ios -name "*.xcworkspace" | head -n 1)
-          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          cd ios
+          pod install
 
-          echo "workspace=$WORKSPACE" >> $GITHUB_OUTPUT
-          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
-
-          echo "Workspace: $WORKSPACE"
-          echo "Scheme: $SCHEME"
+      - name: List Xcode schemes
+        run: |
+          xcodebuild -list -project ios/AssetFlow.xcodeproj
 
       - name: Build unsigned archive
         run: |
           xcodebuild archive \
-            -workspace "${{ steps.vars.outputs.workspace }}" \
-            -scheme "${{ steps.vars.outputs.scheme }}" \
+            -project ios/AssetFlow.xcodeproj \
+            -scheme AssetFlow \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath "$PWD/build/App.xcarchive" \
+            -archivePath "$PWD/build/AssetFlow.xcarchive" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
@@ -57,11 +49,11 @@ jobs:
       - name: Create unsigned IPA
         run: |
           mkdir -p Payload
-          cp -R "build/App.xcarchive/Products/Applications/${{ steps.vars.outputs.scheme }}.app" Payload/
-          zip -r unsigned.ipa Payload
+          cp -R build/AssetFlow.xcarchive/Products/Applications/*.app Payload/
+          zip -r AssetFlow-unsigned.ipa Payload
 
-      - name: Upload IPA artifact
+      - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: unsigned-ios-ipa
-          path: unsigned.ipa
+          name: AssetFlow-unsigned-ipa
+          path: AssetFlow-unsigned.ipa
