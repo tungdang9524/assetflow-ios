@@ -155,7 +155,7 @@ export function InfoSettingsScreen() {
           </Pressable>
         </View>
         <View style={styles.infoRow}>
-          <AppText variant="caption">Mô tả</AppText>
+          <AppText variant="caption">Description</AppText>
           <AppText variant="body">
             AssetFlow helps track money buckets, spending, transfers, budgets, recurring plans, savings goals, debts, and market rates in a simple
             mobile-first workflow.
