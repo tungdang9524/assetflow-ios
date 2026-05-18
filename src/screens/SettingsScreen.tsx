@@ -519,9 +519,17 @@ export function BackupSettingsScreen() {
   function generateBackup() {
     const nextBackupText = JSON.stringify(state, null, 2);
     setBackupText(nextBackupText);
-    ExpoClipboard.setStringAsync(nextBackupText)
+  }
+
+  function copyBackup() {
+    if (!backupText.trim()) {
+      Alert.alert('No backup', 'Generate a JSON backup first.');
+      return;
+    }
+
+    ExpoClipboard.setStringAsync(backupText)
       .then(() => Alert.alert('Backup copied', 'The JSON backup was copied to your clipboard.'))
-      .catch(() => Alert.alert('Backup generated', 'The JSON backup is ready, but it could not be copied to the clipboard.'));
+      .catch(() => Alert.alert('Copy failed', 'Could not copy the backup to the clipboard.'));
   }
 
   function importBackup() {
@@ -538,9 +546,18 @@ export function BackupSettingsScreen() {
       <Card style={styles.card}>
         <AppText variant="heading">Backup</AppText>
         <PrimaryButton label="Generate JSON backup" icon="download-outline" onPress={generateBackup} />
+        <View style={[styles.backupPreview, { borderColor: colors.border }]}>
+          <AppText variant="caption" numberOfLines={6} ellipsizeMode="tail" style={styles.backupPreviewText}>
+            {backupText || 'Backup JSON will appear here.'}
+          </AppText>
+        </View>
+        <Pressable style={[styles.copyButton, { borderColor: colors.border }]} onPress={copyBackup}>
+          <Ionicons name="copy-outline" size={18} color={colors.primary} />
+          <AppText color={colors.primary} style={styles.copyButtonText}>Copy JSON backup</AppText>
+        </Pressable>
         <TextInput
           multiline
-          placeholder="Backup JSON"
+          placeholder="Paste backup JSON to import"
           placeholderTextColor={colors.muted}
           value={backupText}
           onChangeText={setBackupText}
@@ -724,8 +741,32 @@ const styles = StyleSheet.create({
   backupInput: {
     borderRadius: 14,
     borderWidth: 1,
-    minHeight: 180,
+    minHeight: 104,
+    maxHeight: 132,
     padding: 12,
     textAlignVertical: 'top',
+  },
+  backupPreview: {
+    borderRadius: 14,
+    borderWidth: 1,
+    maxHeight: 124,
+    minHeight: 96,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  backupPreviewText: {
+    fontFamily: 'monospace',
+  },
+  copyButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  copyButtonText: {
+    fontWeight: '800',
   },
 });

@@ -1,15 +1,15 @@
 import React, { PropsWithChildren } from 'react';
-import { StyleProp, Text, TextStyle } from 'react-native';
+import { StyleProp, Text, TextProps, TextStyle } from 'react-native';
 
 import { useAppTheme } from '../theme/AppThemeProvider';
 
-interface AppTextProps extends PropsWithChildren {
+interface AppTextProps extends PropsWithChildren, Pick<TextProps, 'ellipsizeMode' | 'numberOfLines'> {
   variant?: 'title' | 'heading' | 'body' | 'caption' | 'number';
   color?: string;
   style?: StyleProp<TextStyle>;
 }
 
-export function AppText({ children, variant = 'body', color, style }: AppTextProps) {
+export function AppText({ children, variant = 'body', color, style, ellipsizeMode, numberOfLines }: AppTextProps) {
   const { colors } = useAppTheme();
 
   const baseStyle: TextStyle = {
@@ -24,5 +24,5 @@ export function AppText({ children, variant = 'body', color, style }: AppTextPro
     number: { fontSize: 24, fontWeight: '800', lineHeight: 30 },
   };
 
-  return <Text style={[baseStyle, variants[variant], style]}>{children}</Text>;
+  return <Text ellipsizeMode={ellipsizeMode} numberOfLines={numberOfLines} style={[baseStyle, variants[variant], style]}>{children}</Text>;
 }
