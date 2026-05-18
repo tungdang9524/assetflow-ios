@@ -1,9 +1,8 @@
-import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 
 import { AccountCard } from '../components/AccountCard';
 import { AppText } from '../components/AppText';
@@ -19,12 +18,95 @@ import { convertCurrency, formatCurrency } from '../utils/currency';
 
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AccountsList'>;
 
+const dragStep = 88;
+
+interface DraggableAccountRowProps {
+  account: Account;
+  index: number;
+  isReordering: boolean;
+  accountCount: number;
+  convertedBalance?: string;
+  onMove: (accountId: string, targetIndex: number) => void;
+  onOpen: (accountId: string) => void;
+}
+
+function DraggableAccountRow({ account, index, isReordering, accountCount, convertedBalance, onMove, onOpen }: DraggableAccountRowProps) {
+  const { colors } = useAppTheme();
+  const dragY = useRef(new Animated.Value(0)).current;
+  const latest = useRef({ accountId: account.id, index, isReordering });
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    latest.current = { accountId: account.id, index, isReordering };
+  }, [account.id, index, isReordering]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => latest.current.isReordering,
+      onMoveShouldSetPanResponder: (_, gestureState) => latest.current.isReordering && Math.abs(gestureState.dy) > 4,
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+        dragY.stopAnimation();
+        dragY.setValue(0);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        dragY.setValue(gestureState.dy);
+        const targetIndex = Math.max(0, Math.min(accountCount - 1, latest.current.index + Math.round(gestureState.dy / dragStep)));
+
+        if (targetIndex !== latest.current.index) {
+          onMove(latest.current.accountId, targetIndex);
+          dragY.setValue(0);
+        }
+      },
+      onPanResponderRelease: () => {
+        setIsDragging(false);
+        Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
+      },
+      onPanResponderTerminate: () => {
+        setIsDragging(false);
+        Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
+      },
+    }),
+  ).current;
+
+  return (
+    <Animated.View
+      style={[
+        styles.accountRow,
+        {
+          opacity: isDragging ? 0.9 : 1,
+          transform: [{ translateY: dragY }],
+          zIndex: isDragging ? 10 : 0,
+        },
+      ]}
+    >
+      {isReordering ? (
+        <View
+          accessibilityLabel={`Drag ${account.name}`}
+          style={[styles.dragHandle, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          {...panResponder.panHandlers}
+        >
+          <Ionicons name="reorder-three-outline" size={24} color={colors.primary} />
+        </View>
+      ) : null}
+      <Pressable disabled={isReordering} style={styles.accountCardPressable} onPress={() => onOpen(account.id)}>
+        <AccountCard account={account} convertedBalance={convertedBalance} />
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export function AccountsScreen() {
   const navigation = useNavigation<Navigation>();
   const { state, refreshMarketRates, isRefreshingRates, reorderAccounts } = useFinance();
   const { colors } = useAppTheme();
   const [isReordering, setIsReordering] = useState(false);
+  const [orderedAccounts, setOrderedAccounts] = useState(state.accounts);
   const netWorth = getNetWorthVnd(state.accounts, state.settings.usdToVndRate);
+
+  useEffect(() => {
+    setOrderedAccounts(state.accounts);
+  }, [state.accounts]);
 
   function handleRefreshRates() {
     refreshMarketRates()
@@ -46,139 +128,99 @@ export function AccountsScreen() {
     return undefined;
   }
 
-  const renderHeader = useCallback(
-    () => (
-      <View style={styles.header}>
-        <View>
-          <AppText variant="caption">Accounts</AppText>
-          <AppText variant="title">Money buckets</AppText>
-        </View>
+  function moveAccount(accountId: string, targetIndex: number) {
+    setOrderedAccounts((currentAccounts) => {
+      const currentIndex = currentAccounts.findIndex((account) => account.id === accountId);
 
-        <Card style={styles.totalCard}>
-          <AppText variant="caption">Total converted value</AppText>
-          <AppText variant="title">{formatCurrency(netWorth, 'VND')}</AppText>
-        </Card>
+      if (currentIndex < 0 || currentIndex === targetIndex) {
+        return currentAccounts;
+      }
 
-        <View style={styles.actions}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.78 : 1 },
-            ]}
-            onPress={handleRefreshRates}
-            disabled={isRefreshingRates}
-          >
-            <Ionicons name="refresh-outline" size={18} color={colors.primary} />
-            <AppText color={colors.primary} style={styles.buttonLabel}>
-              {isRefreshingRates ? 'Updating' : 'Refresh rates'}
-            </AppText>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
-            onPress={() => navigation.navigate('AddAccount')}
-          >
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-            <AppText color="#FFFFFF" style={styles.buttonLabel}>
-              Add
-            </AppText>
-          </Pressable>
-        </View>
-
-        <SectionHeader
-          title="All accounts"
-          action={
-            state.accounts.length > 1 ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.orderToggle,
-                  {
-                    borderColor: isReordering ? colors.primary : colors.border,
-                    backgroundColor: isReordering ? colors.primarySoft : colors.surface,
-                    opacity: pressed ? 0.78 : 1,
-                  },
-                ]}
-                onPress={() => setIsReordering((value) => !value)}
-              >
-                <Ionicons name={isReordering ? 'checkmark' : 'reorder-three-outline'} size={18} color={colors.primary} />
-                <AppText color={colors.primary} style={styles.orderToggleLabel}>
-                  {isReordering ? 'Done' : 'Order'}
-                </AppText>
-              </Pressable>
-            ) : null
-          }
-        />
-      </View>
-    ),
-    [colors, isRefreshingRates, isReordering, navigation, netWorth, state.accounts.length],
-  );
-
-  const renderAccount = useCallback(
-    ({ item, drag, isActive }: RenderItemParams<Account>) => (
-      <ScaleDecorator>
-        <View style={[styles.accountRow, { opacity: isActive ? 0.92 : 1 }]}>
-          {isReordering ? (
-            <Pressable
-              accessibilityLabel={`Drag ${item.name}`}
-              onLongPress={drag}
-              onPressIn={drag}
-              style={({ pressed }) => [
-                styles.dragHandle,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.surface,
-                  opacity: pressed || isActive ? 0.72 : 1,
-                },
-              ]}
-            >
-              <Ionicons name="reorder-three-outline" size={24} color={colors.primary} />
-            </Pressable>
-          ) : null}
-          <Pressable
-            disabled={isReordering}
-            style={styles.accountCardPressable}
-            onLongPress={isReordering ? drag : undefined}
-            onPress={() => navigation.navigate('AddAccount', { accountId: item.id })}
-          >
-            <AccountCard account={item} convertedBalance={getConvertedBalance(item)} />
-          </Pressable>
-        </View>
-      </ScaleDecorator>
-    ),
-    [colors, isReordering, navigation, state.settings.usdToVndRate],
-  );
+      const nextAccounts = [...currentAccounts];
+      const [account] = nextAccounts.splice(currentIndex, 1);
+      nextAccounts.splice(targetIndex, 0, account);
+      reorderAccounts(nextAccounts.map((item) => item.id));
+      return nextAccounts;
+    });
+  }
 
   return (
-    <Screen scroll={false}>
-      <DraggableFlatList
-        activationDistance={8}
-        autoscrollSpeed={120}
-        autoscrollThreshold={80}
-        containerStyle={styles.listContainer}
-        contentContainerStyle={styles.listContent}
-        data={state.accounts}
-        extraData={{ isReordering, usdToVndRate: state.settings.usdToVndRate }}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
-        onDragEnd={({ data }) => reorderAccounts(data.map((account) => account.id))}
-        renderItem={renderAccount}
-        scrollEnabled
+    <Screen>
+      <View>
+        <AppText variant="caption">Accounts</AppText>
+        <AppText variant="title">Money buckets</AppText>
+      </View>
+
+      <Card style={styles.totalCard}>
+        <AppText variant="caption">Total converted value</AppText>
+        <AppText variant="title">{formatCurrency(netWorth, 'VND')}</AppText>
+      </Card>
+
+      <View style={styles.actions}>
+        <Pressable
+          style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.78 : 1 }]}
+          onPress={handleRefreshRates}
+          disabled={isRefreshingRates}
+        >
+          <Ionicons name="refresh-outline" size={18} color={colors.primary} />
+          <AppText color={colors.primary} style={styles.buttonLabel}>
+            {isRefreshingRates ? 'Updating' : 'Refresh rates'}
+          </AppText>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
+          onPress={() => navigation.navigate('AddAccount')}
+        >
+          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <AppText color="#FFFFFF" style={styles.buttonLabel}>
+            Add
+          </AppText>
+        </Pressable>
+      </View>
+
+      <SectionHeader
+        title="All accounts"
+        action={
+          state.accounts.length > 1 ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.orderToggle,
+                {
+                  borderColor: isReordering ? colors.primary : colors.border,
+                  backgroundColor: isReordering ? colors.primarySoft : colors.surface,
+                  opacity: pressed ? 0.78 : 1,
+                },
+              ]}
+              onPress={() => setIsReordering((value) => !value)}
+            >
+              <Ionicons name={isReordering ? 'checkmark' : 'reorder-three-outline'} size={18} color={colors.primary} />
+              <AppText color={colors.primary} style={styles.orderToggleLabel}>
+                {isReordering ? 'Done' : 'Order'}
+              </AppText>
+            </Pressable>
+          ) : null
+        }
       />
+
+      <View style={styles.list}>
+        {orderedAccounts.map((account, index) => (
+          <DraggableAccountRow
+            key={account.id}
+            account={account}
+            accountCount={orderedAccounts.length}
+            convertedBalance={getConvertedBalance(account)}
+            index={index}
+            isReordering={isReordering}
+            onMove={moveAccount}
+            onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
+          />
+        ))}
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  listContainer: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: 2,
-  },
-  header: {
-    gap: 16,
-    paddingBottom: 12,
-  },
   totalCard: {
     gap: 8,
   },
@@ -221,6 +263,9 @@ const styles = StyleSheet.create({
   orderToggleLabel: {
     fontWeight: '800',
   },
+  list: {
+    gap: 12,
+  },
   accountRow: {
     alignItems: 'stretch',
     flexDirection: 'row',
@@ -237,8 +282,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 64,
     width: 42,
-  },
-  separator: {
-    height: 12,
   },
 });
