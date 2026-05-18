@@ -26,19 +26,20 @@ interface DraggableAccountRowProps {
   isReordering: boolean;
   accountCount: number;
   convertedBalance?: string;
-  onMove: (accountId: string, targetIndex: number) => void;
+  onDrop: (accountId: string, targetIndex: number) => void;
   onOpen: (accountId: string) => void;
 }
 
-function DraggableAccountRow({ account, index, isReordering, accountCount, convertedBalance, onMove, onOpen }: DraggableAccountRowProps) {
+function DraggableAccountRow({ account, index, isReordering, accountCount, convertedBalance, onDrop, onOpen }: DraggableAccountRowProps) {
   const { colors } = useAppTheme();
   const dragY = useRef(new Animated.Value(0)).current;
-  const latest = useRef({ accountId: account.id, index, isReordering });
+  const latest = useRef({ accountCount, accountId: account.id, index, isReordering });
+  const startIndex = useRef(index);
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
-    latest.current = { accountId: account.id, index, isReordering };
-  }, [account.id, index, isReordering]);
+    latest.current = { accountCount, accountId: account.id, index, isReordering };
+  }, [account.id, accountCount, index, isReordering]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -46,20 +47,23 @@ function DraggableAccountRow({ account, index, isReordering, accountCount, conve
       onMoveShouldSetPanResponder: (_, gestureState) => latest.current.isReordering && Math.abs(gestureState.dy) > 4,
       onPanResponderGrant: () => {
         setIsDragging(true);
+        startIndex.current = latest.current.index;
         dragY.stopAnimation();
         dragY.setValue(0);
       },
       onPanResponderMove: (_, gestureState) => {
         dragY.setValue(gestureState.dy);
-        const targetIndex = Math.max(0, Math.min(accountCount - 1, latest.current.index + Math.round(gestureState.dy / dragStep)));
-
-        if (targetIndex !== latest.current.index) {
-          onMove(latest.current.accountId, targetIndex);
-          dragY.setValue(0);
-        }
       },
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (_, gestureState) => {
         setIsDragging(false);
+        const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + Math.round(gestureState.dy / dragStep)));
+
+        if (targetIndex !== startIndex.current) {
+          onDrop(latest.current.accountId, targetIndex);
+          dragY.setValue(0);
+          return;
+        }
+
         Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
       },
       onPanResponderTerminate: () => {
@@ -128,7 +132,7 @@ export function AccountsScreen() {
     return undefined;
   }
 
-  function moveAccount(accountId: string, targetIndex: number) {
+  function dropAccount(accountId: string, targetIndex: number) {
     setOrderedAccounts((currentAccounts) => {
       const currentIndex = currentAccounts.findIndex((account) => account.id === accountId);
 
@@ -211,7 +215,7 @@ export function AccountsScreen() {
             convertedBalance={getConvertedBalance(account)}
             index={index}
             isReordering={isReordering}
-            onMove={moveAccount}
+            onDrop={dropAccount}
             onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
           />
         ))}
