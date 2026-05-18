@@ -44,7 +44,11 @@ function DraggableAccountRow({ account, index, isReordering, accountCount, conve
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => latest.current.isReordering,
+      onStartShouldSetPanResponderCapture: () => latest.current.isReordering,
       onMoveShouldSetPanResponder: (_, gestureState) => latest.current.isReordering && Math.abs(gestureState.dy) > 4,
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => latest.current.isReordering && Math.abs(gestureState.dy) > 4,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => latest.current.isReordering,
       onPanResponderGrant: () => {
         setIsDragging(true);
         startIndex.current = latest.current.index;
