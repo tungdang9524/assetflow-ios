@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
@@ -23,22 +24,26 @@ export function BudgetsScreen() {
   const expenseCategories = state.categories.filter((category) => category.type === 'expense');
   const budgets = state.budgets.filter((budget) => budget.month === monthKey);
   const [editingBudgetId, setEditingBudgetId] = useState<string | undefined>();
-  const [categoryId, setCategoryId] = useState(expenseCategories[0]?.id ?? '');
+  const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState('');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const editingBudget = budgets.find((budget) => budget.id === editingBudgetId);
+  const budgetedCategoryIds = new Set(budgets.filter((budget) => budget.id !== editingBudgetId).map((budget) => budget.categoryId));
+  const availableCategories = expenseCategories.filter((category) => !budgetedCategoryIds.has(category.id));
+  const selectedCategory = expenseCategories.find((category) => category.id === categoryId);
 
   function resetForm() {
     setEditingBudgetId(undefined);
-    setCategoryId(expenseCategories[0]?.id ?? '');
+    setCategoryId('');
     setAmount('');
+    setIsCategoryDropdownOpen(false);
   }
 
   function saveBudget() {
-    const selectedCategoryId = categoryId || expenseCategories[0]?.id;
     const parsedAmount = parseAmount(amount);
 
-    if (!selectedCategoryId) {
-      Alert.alert('No category', 'Create an expense category first.');
+    if (!categoryId) {
+      Alert.alert('Choose category', availableCategories.length > 0 ? 'Select a category for this budget.' : 'Every expense category already has a budget.');
       return;
     }
 
@@ -49,14 +54,14 @@ export function BudgetsScreen() {
 
     if (editingBudget) {
       updateBudget(editingBudget.id, {
-        categoryId: selectedCategoryId,
+        categoryId,
         amount: parsedAmount,
         currency: 'VND',
         month: monthKey,
       });
     } else {
       addBudget({
-        categoryId: selectedCategoryId,
+        categoryId,
         amount: parsedAmount,
         currency: 'VND',
         month: monthKey,
@@ -70,6 +75,7 @@ export function BudgetsScreen() {
     setEditingBudgetId(budget.id);
     setCategoryId(budget.categoryId);
     setAmount(String(budget.amount));
+    setIsCategoryDropdownOpen(false);
   }
 
   function confirmDeleteBudget() {
@@ -105,21 +111,36 @@ export function BudgetsScreen() {
 
         <View style={styles.field}>
           <AppText variant="caption">Category</AppText>
-          <View style={styles.categoryGrid}>
-            {expenseCategories.map((category) => {
-              const selected = category.id === (categoryId || expenseCategories[0]?.id);
-              return (
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setIsCategoryDropdownOpen((value) => !value)}
+          >
+            <View style={styles.dropdownValue}>
+              {selectedCategory ? <View style={[styles.dot, { backgroundColor: selectedCategory.color }]} /> : null}
+              <AppText color={selectedCategory ? colors.text : colors.muted} style={styles.dropdownText}>
+                {selectedCategory?.name ?? (availableCategories.length > 0 ? 'Choose category' : 'No categories available')}
+              </AppText>
+            </View>
+            <Ionicons name={isCategoryDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+          </Pressable>
+          {isCategoryDropdownOpen ? (
+            <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              {availableCategories.map((category, index) => (
                 <Pressable
                   key={category.id}
-                  style={[styles.categoryChip, { borderColor: selected ? colors.primary : colors.border, backgroundColor: colors.surface }]}
-                  onPress={() => setCategoryId(category.id)}
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border, borderBottomWidth: index === availableCategories.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
+                  onPress={() => {
+                    setCategoryId(category.id);
+                    setIsCategoryDropdownOpen(false);
+                  }}
                 >
                   <View style={[styles.dot, { backgroundColor: category.color }]} />
-                  <AppText style={styles.chipText}>{category.name}</AppText>
+                  <AppText style={styles.dropdownItemText}>{category.name}</AppText>
+                  {category.id === categoryId ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
                 </Pressable>
-              );
-            })}
-          </View>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.field}>
@@ -135,7 +156,7 @@ export function BudgetsScreen() {
         </View>
 
         <View style={styles.actions}>
-          <PrimaryButton label={editingBudget ? 'Save changes' : 'Add budget'} icon="save-outline" onPress={saveBudget} />
+          <PrimaryButton label={editingBudget ? 'Save changes' : 'Add budget'} icon="save-outline" onPress={saveBudget} disabled={!editingBudget && availableCategories.length === 0} />
           {editingBudget ? (
             <>
               <Pressable style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={resetForm}>
@@ -192,27 +213,44 @@ const styles = StyleSheet.create({
   field: {
     gap: 8,
   },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryChip: {
+  dropdownButton: {
     alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 8,
-    minHeight: 42,
+    justifyContent: 'space-between',
+    minHeight: 50,
     paddingHorizontal: 12,
+  },
+  dropdownValue: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dropdownText: {
+    fontWeight: '800',
+  },
+  dropdownList: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 46,
+    paddingHorizontal: 12,
+  },
+  dropdownItemText: {
+    flex: 1,
+    fontWeight: '800',
   },
   dot: {
     borderRadius: 999,
     height: 10,
     width: 10,
-  },
-  chipText: {
-    fontWeight: '800',
   },
   input: {
     borderRadius: 14,

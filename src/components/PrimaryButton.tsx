@@ -7,15 +7,20 @@ import { AppText } from './AppText';
 
 interface PrimaryButtonProps {
   label: string;
+  disabled?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }
 
-export function PrimaryButton({ label, icon, onPress }: PrimaryButtonProps) {
+export function PrimaryButton({ label, disabled = false, icon, onPress }: PrimaryButtonProps) {
   const { colors } = useAppTheme();
 
   return (
-    <Pressable style={({ pressed }) => [styles.button, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]} onPress={onPress}>
+    <Pressable
+      disabled={disabled}
+      style={({ pressed }) => [styles.button, { backgroundColor: colors.primary, opacity: disabled ? 0.42 : pressed ? 0.82 : 1 }]}
+      onPress={onPress}
+    >
       {icon ? <Ionicons name={icon} size={18} color="#FFFFFF" /> : null}
       <AppText color="#FFFFFF" style={styles.label}>
         {label}
