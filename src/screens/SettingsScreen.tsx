@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, Switch, TextInput, View } from 'react-nat
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
 import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
@@ -18,6 +18,8 @@ import { formatCurrency } from '../utils/currency';
 const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
 
 type SettingsNavigation = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHome'>;
+type CategoryNavigation = NativeStackNavigationProp<SettingsStackParamList, 'CategorySettings'>;
+type CategoryDetailRoute = RouteProp<SettingsStackParamList, 'CategoryDetailSettings'>;
 
 interface SettingsRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -169,11 +171,11 @@ export function ThemeSettingsScreen() {
 }
 
 export function CategorySettingsScreen() {
-  const { state, addCategory, updateCategory, deleteCategory } = useFinance();
+  const navigation = useNavigation<CategoryNavigation>();
+  const { state, addCategory } = useFinance();
   const { colors } = useAppTheme();
   const [categoryName, setCategoryName] = useState('');
   const [categoryType, setCategoryType] = useState<'expense' | 'income'>('expense');
-  const [editingCategoryId, setEditingCategoryId] = useState<string | undefined>();
 
   function handleAddCategory() {
     if (!categoryName.trim()) {
@@ -181,17 +183,12 @@ export function CategorySettingsScreen() {
       return;
     }
 
-    if (editingCategoryId) {
-      updateCategory(editingCategoryId, { name: categoryName.trim(), type: categoryType });
-      setEditingCategoryId(undefined);
-    } else {
-      addCategory({
-        name: categoryName.trim(),
-        type: categoryType,
-        icon: categoryType === 'income' ? 'add-circle-outline' : 'ellipse-outline',
-        color: categoryType === 'income' ? colors.primary : colors.accent,
-      });
-    }
+    addCategory({
+      name: categoryName.trim(),
+      type: categoryType,
+      icon: categoryType === 'income' ? 'add-circle-outline' : 'ellipse-outline',
+      color: categoryType === 'income' ? colors.primary : colors.accent,
+    });
 
     setCategoryName('');
   }
@@ -203,9 +200,8 @@ export function CategorySettingsScreen() {
     return (
       <Pressable
         key={category.id}
-        style={[styles.categoryRow, { borderColor: editingCategoryId === category.id ? colors.primary : colors.border }]}
-        onPress={() => editCategory(category.id)}
-        onLongPress={() => handleDeleteCategory(category.id)}
+        style={[styles.categoryRow, { borderColor: colors.border }]}
+        onPress={() => navigation.navigate('CategoryDetailSettings', { categoryId: category.id })}
       >
         <View style={[styles.categoryIcon, { backgroundColor: `${category.color}20` }]}>
           <Ionicons name={category.icon as keyof typeof Ionicons.glyphMap} size={18} color={category.color} />
@@ -214,37 +210,17 @@ export function CategorySettingsScreen() {
           <AppText style={styles.rowTitle}>{category.name}</AppText>
           <AppText variant="caption">{category.type === 'income' ? 'Income' : 'Expense'}</AppText>
         </View>
-        <Ionicons name="create-outline" size={18} color={colors.muted} />
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </Pressable>
     );
-  }
-
-  function handleDeleteCategory(categoryId: string) {
-    const didDelete = deleteCategory(categoryId);
-
-    if (!didDelete) {
-      Alert.alert('Category in use', 'Categories attached to transactions or budgets cannot be deleted.');
-    }
-  }
-
-  function editCategory(categoryId: string) {
-    const category = state.categories.find((item) => item.id === categoryId);
-
-    if (!category) {
-      return;
-    }
-
-    setEditingCategoryId(category.id);
-    setCategoryName(category.name);
-    setCategoryType(category.type);
   }
 
   return (
     <Screen>
       <Card style={styles.card}>
         <View>
-          <AppText variant="heading">{editingCategoryId ? 'Edit category' : 'New category'}</AppText>
-          <AppText variant="caption">Tap a category below to edit it.</AppText>
+          <AppText variant="heading">Add new</AppText>
+          <AppText variant="caption">Create a new income or expense category.</AppText>
         </View>
         <View style={styles.segment}>
           {(['expense', 'income'] as const).map((option) => {
@@ -259,18 +235,7 @@ export function CategorySettingsScreen() {
           })}
         </View>
         <TextInput placeholder="Category name" placeholderTextColor={colors.muted} value={categoryName} onChangeText={setCategoryName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
-        <PrimaryButton label={editingCategoryId ? 'Save category' : 'Add category'} icon="add-circle-outline" onPress={handleAddCategory} />
-        {editingCategoryId ? (
-          <Pressable
-            style={[styles.clearButton, { borderColor: colors.border }]}
-            onPress={() => {
-              setEditingCategoryId(undefined);
-              setCategoryName('');
-            }}
-          >
-            <AppText style={styles.segmentLabel}>Cancel edit</AppText>
-          </Pressable>
-        ) : null}
+        <PrimaryButton label="Add category" icon="add-circle-outline" onPress={handleAddCategory} />
       </Card>
 
       <Card style={styles.card}>
@@ -281,7 +246,95 @@ export function CategorySettingsScreen() {
       <Card style={styles.card}>
         <AppText variant="heading">Income</AppText>
         <View style={styles.categoryList}>{incomeCategories.map(renderCategoryRow)}</View>
-        <AppText variant="caption">Tap to edit. Long press to delete when unused.</AppText>
+        <AppText variant="caption">Tap a category to edit or delete it.</AppText>
+      </Card>
+    </Screen>
+  );
+}
+
+export function CategoryDetailSettingsScreen() {
+  const route = useRoute<CategoryDetailRoute>();
+  const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList, 'CategoryDetailSettings'>>();
+  const { state, updateCategory, deleteCategory } = useFinance();
+  const { colors } = useAppTheme();
+  const category = state.categories.find((item) => item.id === route.params.categoryId);
+  const [name, setName] = useState(category?.name ?? '');
+  const [type, setType] = useState<'expense' | 'income'>(category?.type ?? 'expense');
+
+  if (!category) {
+    return (
+      <Screen>
+        <Card style={styles.card}>
+          <AppText variant="heading">Category not found</AppText>
+        </Card>
+      </Screen>
+    );
+  }
+
+  const selectedCategory = category;
+
+  function saveCategory() {
+    if (!name.trim()) {
+      Alert.alert('Invalid category', 'Enter a category name.');
+      return;
+    }
+
+    updateCategory(selectedCategory.id, { name: name.trim(), type });
+    navigation.goBack();
+  }
+
+  function confirmDelete() {
+    Alert.alert('Delete category', `Delete ${selectedCategory.name}? This only works when the category is not used by transactions or budgets.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          const didDelete = deleteCategory(selectedCategory.id);
+
+          if (!didDelete) {
+            Alert.alert('Category in use', 'Categories attached to transactions or budgets cannot be deleted.');
+            return;
+          }
+
+          navigation.goBack();
+        },
+      },
+    ]);
+  }
+
+  return (
+    <Screen>
+      <Card style={styles.card}>
+        <View style={styles.categoryPreview}>
+          <View style={[styles.categoryIconLarge, { backgroundColor: `${selectedCategory.color}20` }]}>
+            <Ionicons name={selectedCategory.icon as keyof typeof Ionicons.glyphMap} size={24} color={selectedCategory.color} />
+          </View>
+          <View style={styles.rowCopy}>
+            <AppText variant="heading">{selectedCategory.name}</AppText>
+            <AppText variant="caption">{selectedCategory.type === 'income' ? 'Income' : 'Expense'}</AppText>
+          </View>
+        </View>
+
+        <TextInput placeholder="Category name" placeholderTextColor={colors.muted} value={name} onChangeText={setName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
+        <View style={styles.segment}>
+          {(['expense', 'income'] as const).map((option) => {
+            const selected = type === option;
+            return (
+              <Pressable key={option} style={[styles.segmentItem, { backgroundColor: selected ? colors.primary : colors.surface, borderColor: colors.border }]} onPress={() => setType(option)}>
+                <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentLabel}>
+                  {option === 'income' ? 'Income' : 'Expense'}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+        <PrimaryButton label="Save category" icon="save-outline" onPress={saveCategory} />
+        <Pressable style={[styles.deleteButton, { borderColor: colors.danger }]} onPress={confirmDelete}>
+          <AppText color={colors.danger} style={styles.segmentLabel}>
+            Delete category
+          </AppText>
+        </Pressable>
       </Card>
     </Screen>
   );
@@ -509,6 +562,25 @@ const styles = StyleSheet.create({
     height: 38,
     justifyContent: 'center',
     width: 38,
+  },
+  categoryPreview: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  categoryIconLarge: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 54,
+    justifyContent: 'center',
+    width: 54,
+  },
+  deleteButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 52,
   },
   tag: {
     borderRadius: 999,

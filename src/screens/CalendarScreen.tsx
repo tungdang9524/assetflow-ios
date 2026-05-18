@@ -35,7 +35,8 @@ export function CalendarScreen() {
   const monthKey = getMonthKey(visibleMonth);
   const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
-  const leadingBlankDays = firstDay.getDay();
+  const leadingBlankDays = (firstDay.getDay() + 6) % 7;
+  const todayKey = getDateKey(new Date());
   const daySummaries = Array.from({ length: daysInMonth }).map<DaySummary>((_, index) => {
     const day = index + 1;
     const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
@@ -88,7 +89,7 @@ export function CalendarScreen() {
       </View>
 
       <View style={styles.weekHeader}>
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
           <AppText key={day} variant="caption" style={styles.weekLabel}>
             {day}
           </AppText>
@@ -102,6 +103,7 @@ export function CalendarScreen() {
 
         {daySummaries.map((summary) => {
           const hasActivity = summary.transactions.length > 0;
+          const isToday = summary.dateKey === todayKey;
 
           return (
             <View
@@ -110,11 +112,14 @@ export function CalendarScreen() {
                 styles.dayCell,
                 {
                   backgroundColor: colors.surface,
-                  borderColor: hasActivity ? colors.primary : colors.border,
+                  borderColor: isToday ? colors.primary : hasActivity ? colors.accent : colors.border,
+                  borderWidth: isToday ? 2 : 1,
                 },
               ]}
             >
-              <AppText style={styles.dayNumber}>{summary.day}</AppText>
+              <AppText color={isToday ? colors.primary : colors.text} style={[styles.dayNumber, isToday ? styles.todayNumber : undefined]}>
+                {summary.day}
+              </AppText>
               <View style={styles.amounts}>
                 {summary.income > 0 ? (
                   <AppText variant="caption" color={colors.primary} style={styles.amountText}>
@@ -180,6 +185,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     lineHeight: 17,
+  },
+  todayNumber: {
+    fontSize: 16,
+    fontWeight: '900',
   },
   amounts: {
     gap: 2,

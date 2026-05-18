@@ -13,6 +13,7 @@ import { PlanningScreen } from '../screens/PlanningScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
 import {
   BackupSettingsScreen,
+  CategoryDetailSettingsScreen,
   CategorySettingsScreen,
   RateSettingsScreen,
   SampleDataSettingsScreen,
@@ -102,6 +103,7 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen name="RateSettings" component={RateSettingsScreen} options={{ title: 'Rates' }} />
       <SettingsStack.Screen name="ThemeSettings" component={ThemeSettingsScreen} options={{ title: 'Theme' }} />
       <SettingsStack.Screen name="CategorySettings" component={CategorySettingsScreen} options={{ title: 'Categories' }} />
+      <SettingsStack.Screen name="CategoryDetailSettings" component={CategoryDetailSettingsScreen} options={{ title: 'Category' }} />
       <SettingsStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ title: 'Security' }} />
       <SettingsStack.Screen name="BackupSettings" component={BackupSettingsScreen} options={{ title: 'Backup' }} />
       <SettingsStack.Screen name="SampleDataSettings" component={SampleDataSettingsScreen} options={{ title: 'Sample Data' }} />

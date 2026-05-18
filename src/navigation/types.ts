@@ -28,6 +28,7 @@ export type SettingsStackParamList = {
   RateSettings: undefined;
   ThemeSettings: undefined;
   CategorySettings: undefined;
+  CategoryDetailSettings: { categoryId: string };
   SecuritySettings: undefined;
   BackupSettings: undefined;
   SampleDataSettings: undefined;
