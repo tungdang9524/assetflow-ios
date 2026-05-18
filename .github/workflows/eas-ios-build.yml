@@ -23,6 +23,8 @@ jobs:
   eas-ios-build:
     name: Build iOS artifact with EAS
     runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
 
     steps:
       - name: Checkout
@@ -49,7 +51,16 @@ jobs:
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EAS_TOKEN }}
+          token: ${{ env.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        shell: bash
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EAS_TOKEN repository secret. Create an Expo access token and save it as EAS_TOKEN."
+            exit 1
+          fi
+          eas whoami
 
       - name: Resolve build profile
         id: profile
