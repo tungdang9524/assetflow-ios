@@ -29,10 +29,10 @@ interface DraggableAccountRowProps {
   accountCount: number;
   convertedBalance?: string;
   getScrollY: () => number;
-  onDrop: (accountId: string, targetIndex: number) => void;
   onDragMove: (moveY: number) => number;
   onDragStateChange: (isDragging: boolean) => void;
   onOpen: (accountId: string) => void;
+  onReorder: (accountId: string, targetIndex: number) => number;
 }
 
 function DraggableAccountRow({
@@ -42,14 +42,15 @@ function DraggableAccountRow({
   accountCount,
   convertedBalance,
   getScrollY,
-  onDrop,
   onDragMove,
   onDragStateChange,
   onOpen,
+  onReorder,
 }: DraggableAccountRowProps) {
   const { colors } = useAppTheme();
   const dragY = useRef(new Animated.Value(0)).current;
   const latest = useRef({ accountCount, accountId: account.id, index, isReordering });
+  const startGestureDy = useRef(0);
   const startIndex = useRef(index);
   const startScrollY = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -69,6 +70,7 @@ function DraggableAccountRow({
       onPanResponderGrant: () => {
         setIsDragging(true);
         onDragStateChange(true);
+        startGestureDy.current = 0;
         startIndex.current = latest.current.index;
         startScrollY.current = getScrollY();
         dragY.stopAnimation();
@@ -76,17 +78,32 @@ function DraggableAccountRow({
       },
       onPanResponderMove: (_, gestureState) => {
         const currentScrollY = onDragMove(gestureState.moveY);
-        const effectiveDy = gestureState.dy + currentScrollY - startScrollY.current;
+        let effectiveDy = gestureState.dy - startGestureDy.current + currentScrollY - startScrollY.current;
+        const indexDelta = Math.round(effectiveDy / dragStep);
+
+        if (indexDelta !== 0) {
+          const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + indexDelta));
+          const reorderedIndex = onReorder(latest.current.accountId, targetIndex);
+          const movedDelta = reorderedIndex - startIndex.current;
+
+          if (movedDelta !== 0) {
+            startGestureDy.current += movedDelta * dragStep;
+            startIndex.current = reorderedIndex;
+            startScrollY.current = currentScrollY;
+            effectiveDy = gestureState.dy - startGestureDy.current;
+          }
+        }
+
         dragY.setValue(effectiveDy);
       },
       onPanResponderRelease: (_, gestureState) => {
         setIsDragging(false);
         onDragStateChange(false);
-        const effectiveDy = gestureState.dy + getScrollY() - startScrollY.current;
+        const effectiveDy = gestureState.dy - startGestureDy.current + getScrollY() - startScrollY.current;
         const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + Math.round(effectiveDy / dragStep)));
 
         if (targetIndex !== startIndex.current) {
-          onDrop(latest.current.accountId, targetIndex);
+          onReorder(latest.current.accountId, targetIndex);
           dragY.setValue(0);
           return;
         }
@@ -134,12 +151,14 @@ export function AccountsScreen() {
   const { colors } = useAppTheme();
   const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(0);
+  const orderedAccountsRef = useRef(state.accounts);
   const [isReordering, setIsReordering] = useState(false);
   const [isDraggingAccount, setIsDraggingAccount] = useState(false);
   const [orderedAccounts, setOrderedAccounts] = useState(state.accounts);
   const netWorth = getNetWorthVnd(state.accounts, state.settings.usdToVndRate);
 
   useEffect(() => {
+    orderedAccountsRef.current = state.accounts;
     setOrderedAccounts(state.accounts);
   }, [state.accounts]);
 
@@ -163,20 +182,27 @@ export function AccountsScreen() {
     return undefined;
   }
 
-  function dropAccount(accountId: string, targetIndex: number) {
-    setOrderedAccounts((currentAccounts) => {
-      const currentIndex = currentAccounts.findIndex((account) => account.id === accountId);
+  function reorderAccount(accountId: string, targetIndex: number) {
+    const currentAccounts = orderedAccountsRef.current;
+    const currentIndex = currentAccounts.findIndex((account) => account.id === accountId);
 
-      if (currentIndex < 0 || currentIndex === targetIndex) {
-        return currentAccounts;
-      }
+    if (currentIndex < 0) {
+      return targetIndex;
+    }
 
-      const nextAccounts = [...currentAccounts];
-      const [account] = nextAccounts.splice(currentIndex, 1);
-      nextAccounts.splice(targetIndex, 0, account);
-      reorderAccounts(nextAccounts.map((item) => item.id));
-      return nextAccounts;
-    });
+    const nextIndex = Math.max(0, Math.min(currentAccounts.length - 1, targetIndex));
+
+    if (currentIndex === nextIndex) {
+      return currentIndex;
+    }
+
+    const nextAccounts = [...currentAccounts];
+    const [account] = nextAccounts.splice(currentIndex, 1);
+    nextAccounts.splice(nextIndex, 0, account);
+    orderedAccountsRef.current = nextAccounts;
+    setOrderedAccounts(nextAccounts);
+    reorderAccounts(nextAccounts.map((item) => item.id));
+    return nextIndex;
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -271,8 +297,8 @@ export function AccountsScreen() {
             isReordering={isReordering}
             onDragMove={handleDragMove}
             onDragStateChange={setIsDraggingAccount}
-            onDrop={dropAccount}
             onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
+            onReorder={reorderAccount}
           />
         ))}
       </View>
