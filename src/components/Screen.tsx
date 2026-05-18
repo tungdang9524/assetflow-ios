@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../theme/AppThemeProvider';
 
 interface ScreenProps extends PropsWithChildren {
+  onContentSizeChange?: ScrollViewProps['onContentSizeChange'];
+  onLayout?: ScrollViewProps['onLayout'];
   onScroll?: ScrollViewProps['onScroll'];
   scroll?: boolean;
   scrollEnabled?: boolean;
@@ -12,7 +14,16 @@ interface ScreenProps extends PropsWithChildren {
   scrollViewRef?: React.RefObject<ScrollView | null>;
 }
 
-export function Screen({ children, onScroll, scroll = true, scrollEnabled = true, scrollEventThrottle, scrollViewRef }: ScreenProps) {
+export function Screen({
+  children,
+  onContentSizeChange,
+  onLayout,
+  onScroll,
+  scroll = true,
+  scrollEnabled = true,
+  scrollEventThrottle,
+  scrollViewRef,
+}: ScreenProps) {
   const { colors } = useAppTheme();
 
   if (!scroll) {
@@ -27,6 +38,8 @@ export function Screen({ children, onScroll, scroll = true, scrollEnabled = true
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
+        onContentSizeChange={onContentSizeChange}
+        onLayout={onLayout}
         onScroll={onScroll}
         ref={scrollViewRef}
         scrollEnabled={scrollEnabled}

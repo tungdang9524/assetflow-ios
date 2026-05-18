@@ -1,5 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, NativeScrollEvent, NativeSyntheticEvent, PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -152,6 +164,8 @@ export function AccountsScreen() {
   const { state, refreshMarketRates, isRefreshingRates, reorderAccounts } = useFinance();
   const { colors } = useAppTheme();
   const scrollRef = useRef<ScrollView>(null);
+  const contentHeight = useRef(0);
+  const viewportHeight = useRef(0);
   const scrollY = useRef(0);
   const orderedAccountsRef = useRef(state.accounts);
   const [isReordering, setIsReordering] = useState(false);
@@ -211,12 +225,21 @@ export function AccountsScreen() {
     scrollY.current = event.nativeEvent.contentOffset.y;
   }
 
+  function handleContentSizeChange(_: number, height: number) {
+    contentHeight.current = height;
+  }
+
+  function handleLayout(event: LayoutChangeEvent) {
+    viewportHeight.current = event.nativeEvent.layout.height;
+  }
+
   function handleDragMove(moveY: number) {
     const windowHeight = Dimensions.get('window').height;
+    const maxScrollY = Math.max(0, contentHeight.current - viewportHeight.current);
     let nextY = scrollY.current;
 
     if (moveY > windowHeight - autoScrollEdgeSize) {
-      nextY = scrollY.current + autoScrollStep;
+      nextY = Math.min(maxScrollY, scrollY.current + autoScrollStep);
     } else if (moveY < autoScrollEdgeSize) {
       nextY = Math.max(0, scrollY.current - autoScrollStep);
     }
@@ -230,7 +253,14 @@ export function AccountsScreen() {
   }
 
   return (
-    <Screen onScroll={handleScroll} scrollEnabled={!isDraggingAccount} scrollEventThrottle={16} scrollViewRef={scrollRef}>
+    <Screen
+      onContentSizeChange={handleContentSizeChange}
+      onLayout={handleLayout}
+      onScroll={handleScroll}
+      scrollEnabled={!isDraggingAccount}
+      scrollEventThrottle={16}
+      scrollViewRef={scrollRef}
+    >
       <View>
         <AppText variant="caption">Accounts</AppText>
         <AppText variant="title">Money buckets</AppText>
