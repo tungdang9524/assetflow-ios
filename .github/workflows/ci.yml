@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    name: TypeScript and Expo checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Expo dependency versions
+        run: npm run expo:check
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Lint if configured
+        shell: bash
+        run: |
+          if node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.lint ? 0 : 1)"; then
+            npm run lint
+          else
+            echo "No lint script configured; skipping lint."
+          fi
+
+      - name: Validate Expo config
+        run: npx expo config --type public
+
+      # This project is Expo Go compatible and does not need native folders for normal development.
+      # We intentionally do not run `expo prebuild` here because it would generate native iOS files
+      # and is unnecessary for the MVP CI path on ubuntu-latest.
+      - name: Bundle iOS JavaScript
+        run: npm run export:ios

@@ -1,0 +1,28 @@
+import React, { PropsWithChildren } from 'react';
+import { StyleProp, Text, TextStyle } from 'react-native';
+
+import { useAppTheme } from '../theme/AppThemeProvider';
+
+interface AppTextProps extends PropsWithChildren {
+  variant?: 'title' | 'heading' | 'body' | 'caption' | 'number';
+  color?: string;
+  style?: StyleProp<TextStyle>;
+}
+
+export function AppText({ children, variant = 'body', color, style }: AppTextProps) {
+  const { colors } = useAppTheme();
+
+  const baseStyle: TextStyle = {
+    color: color ?? colors.text,
+  };
+
+  const variants: Record<NonNullable<AppTextProps['variant']>, TextStyle> = {
+    title: { fontSize: 31, fontWeight: '800', lineHeight: 38 },
+    heading: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
+    body: { fontSize: 15, fontWeight: '500', lineHeight: 21 },
+    caption: { fontSize: 12, fontWeight: '600', lineHeight: 16, color: color ?? colors.muted },
+    number: { fontSize: 24, fontWeight: '800', lineHeight: 30 },
+  };
+
+  return <Text style={[baseStyle, variants[variant], style]}>{children}</Text>;
+}

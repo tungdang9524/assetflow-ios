@@ -1,0 +1,46 @@
+name: EAS iOS Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS build profile from eas.json"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - internal
+          - production
+
+jobs:
+  eas-ios-build:
+    name: Trigger EAS iOS build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Required setup before using this workflow:
+      # 1. Create an Expo account and install the EAS CLI locally.
+      # 2. Run `npx eas login`, then `npx eas init` in this repo to link an EAS project.
+      # 3. Create an access token and save it in GitHub repository secrets as EAS_TOKEN.
+      # 4. iOS device/store builds may require Apple Developer credentials for signing.
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EAS_TOKEN }}
+
+      - name: Start EAS iOS build
+        run: npx eas build --platform ios --profile "${{ inputs.profile }}" --non-interactive --no-wait

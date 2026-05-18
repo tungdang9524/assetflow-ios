@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "AssetFlow",
+    "slug": "assetflow-ios",
+    "version": "1.0.0",
+    "platforms": [
+      "ios"
+    ],
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#F7F3EA",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.assetflow.app"
+    },
+    "plugins": []
+  }
+}
