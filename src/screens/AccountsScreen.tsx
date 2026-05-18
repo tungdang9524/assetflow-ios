@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Animated, Dimensions, NativeScrollEvent, NativeSyntheticEvent, PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +19,8 @@ import { convertCurrency, formatCurrency } from '../utils/currency';
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AccountsList'>;
 
 const dragStep = 88;
+const autoScrollEdgeSize = 120;
+const autoScrollStep = 18;
 
 interface DraggableAccountRowProps {
   account: Account;
@@ -26,7 +28,9 @@ interface DraggableAccountRowProps {
   isReordering: boolean;
   accountCount: number;
   convertedBalance?: string;
+  getScrollY: () => number;
   onDrop: (accountId: string, targetIndex: number) => void;
+  onDragMove: (moveY: number) => void;
   onDragStateChange: (isDragging: boolean) => void;
   onOpen: (accountId: string) => void;
 }
@@ -37,7 +41,9 @@ function DraggableAccountRow({
   isReordering,
   accountCount,
   convertedBalance,
+  getScrollY,
   onDrop,
+  onDragMove,
   onDragStateChange,
   onOpen,
 }: DraggableAccountRowProps) {
@@ -45,6 +51,7 @@ function DraggableAccountRow({
   const dragY = useRef(new Animated.Value(0)).current;
   const latest = useRef({ accountCount, accountId: account.id, index, isReordering });
   const startIndex = useRef(index);
+  const startScrollY = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
@@ -63,16 +70,20 @@ function DraggableAccountRow({
         setIsDragging(true);
         onDragStateChange(true);
         startIndex.current = latest.current.index;
+        startScrollY.current = getScrollY();
         dragY.stopAnimation();
         dragY.setValue(0);
       },
       onPanResponderMove: (_, gestureState) => {
-        dragY.setValue(gestureState.dy);
+        const effectiveDy = gestureState.dy + getScrollY() - startScrollY.current;
+        dragY.setValue(effectiveDy);
+        onDragMove(gestureState.moveY);
       },
       onPanResponderRelease: (_, gestureState) => {
         setIsDragging(false);
         onDragStateChange(false);
-        const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + Math.round(gestureState.dy / dragStep)));
+        const effectiveDy = gestureState.dy + getScrollY() - startScrollY.current;
+        const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + Math.round(effectiveDy / dragStep)));
 
         if (targetIndex !== startIndex.current) {
           onDrop(latest.current.accountId, targetIndex);
@@ -121,6 +132,8 @@ export function AccountsScreen() {
   const navigation = useNavigation<Navigation>();
   const { state, refreshMarketRates, isRefreshingRates, reorderAccounts } = useFinance();
   const { colors } = useAppTheme();
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollY = useRef(0);
   const [isReordering, setIsReordering] = useState(false);
   const [isDraggingAccount, setIsDraggingAccount] = useState(false);
   const [orderedAccounts, setOrderedAccounts] = useState(state.accounts);
@@ -166,8 +179,28 @@ export function AccountsScreen() {
     });
   }
 
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    scrollY.current = event.nativeEvent.contentOffset.y;
+  }
+
+  function handleDragMove(moveY: number) {
+    const windowHeight = Dimensions.get('window').height;
+    let nextY = scrollY.current;
+
+    if (moveY > windowHeight - autoScrollEdgeSize) {
+      nextY = scrollY.current + autoScrollStep;
+    } else if (moveY < autoScrollEdgeSize) {
+      nextY = Math.max(0, scrollY.current - autoScrollStep);
+    }
+
+    if (nextY !== scrollY.current) {
+      scrollY.current = nextY;
+      scrollRef.current?.scrollTo({ y: nextY, animated: false });
+    }
+  }
+
   return (
-    <Screen scrollEnabled={!isDraggingAccount}>
+    <Screen onScroll={handleScroll} scrollEnabled={!isDraggingAccount} scrollEventThrottle={16} scrollViewRef={scrollRef}>
       <View>
         <AppText variant="caption">Accounts</AppText>
         <AppText variant="title">Money buckets</AppText>
@@ -231,8 +264,10 @@ export function AccountsScreen() {
             account={account}
             accountCount={orderedAccounts.length}
             convertedBalance={getConvertedBalance(account)}
+            getScrollY={() => scrollY.current}
             index={index}
             isReordering={isReordering}
+            onDragMove={handleDragMove}
             onDragStateChange={setIsDraggingAccount}
             onDrop={dropAccount}
             onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
