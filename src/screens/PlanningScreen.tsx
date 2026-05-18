@@ -41,13 +41,13 @@ export function PlanningScreen() {
   }
 
   return (
-    <Screen>
+    <Screen scroll={false}>
       <View>
         <AppText variant="caption">Planning</AppText>
         <AppText variant="title">Plan ahead</AppText>
       </View>
 
-      <Card style={styles.card}>
+      <Card style={[styles.card, styles.menuCard]}>
         <View style={styles.toolList}>
           {renderToolRow('flag-outline', 'Savings Goals', 'Targets and saved amounts', () => navigation.navigate('SavingsGoals'))}
           {renderToolRow('people-outline', 'Debts & Loans', 'Money owed to you or by you', () => navigation.navigate('DebtsLoans'))}
@@ -271,16 +271,21 @@ const styles = StyleSheet.create({
   card: {
     gap: 14,
   },
+  menuCard: {
+    flex: 1,
+  },
   toolList: {
+    flex: 1,
     gap: 8,
   },
   toolRow: {
     alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
+    flex: 1,
     flexDirection: 'row',
     gap: 10,
-    minHeight: 58,
+    minHeight: 72,
     paddingHorizontal: 12,
   },
   toolIcon: {
