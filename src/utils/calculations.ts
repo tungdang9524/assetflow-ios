@@ -92,14 +92,14 @@ function getNetImpactVnd(transaction: Transaction, usdToVndRate: number) {
   return transaction.type === 'income' ? value : -value;
 }
 
-export function getBalanceTrend(accounts: Account[], transactions: Transaction[], usdToVndRate: number, monthCount = 6) {
+export function getBalanceTrend(accounts: Account[], transactions: Transaction[], usdToVndRate: number, dayCount = 14) {
   const now = new Date();
   const currentNetWorth = getNetWorthVnd(accounts, usdToVndRate);
-  const monthlyPoints = Array.from({ length: monthCount }).map((_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1 - index), 1);
-    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+  const dailyPoints = Array.from({ length: dayCount }).map((_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayCount - 1 - index));
+    const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
     const laterImpact = transactions.reduce((sum, transaction) => {
-      if (new Date(transaction.date) <= monthEnd) {
+      if (new Date(transaction.date) <= dayEnd) {
         return sum;
       }
 
@@ -107,11 +107,14 @@ export function getBalanceTrend(accounts: Account[], transactions: Transaction[]
     }, 0);
 
     return {
-      monthKey: getMonthKey(date),
-      label: new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date),
+      dateKey: date.toISOString(),
+      label: new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(date),
       value: currentNetWorth - laterImpact,
     };
   });
 
-  return monthlyPoints;
+  return dailyPoints.map((point, index) => ({
+    ...point,
+    change: index === 0 ? 0 : point.value - dailyPoints[index - 1].value,
+  }));
 }
