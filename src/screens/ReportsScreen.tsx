@@ -1,38 +1,66 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
 import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { Screen } from '../components/Screen';
 import { SectionHeader } from '../components/SectionHeader';
+import type { Category } from '../models/finance';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
 import { getMonthlyTotals, getMonthlyTrend, getNetWorthVnd, getTopExpenseCategories } from '../utils/calculations';
 import { compactCurrency, convertCurrency, formatCurrency } from '../utils/currency';
 import { getMonthKey } from '../utils/dates';
 
-function DonutSegment({ color, end, start }: { color: string; end: number; start: number }) {
-  const startDegrees = start * 360;
-  const sweepDegrees = Math.max((end - start) * 360, 0);
+const DONUT_SIZE = 160;
+const DONUT_STROKE = 26;
+const DONUT_CENTER = DONUT_SIZE / 2;
+const DONUT_RADIUS = (DONUT_SIZE - DONUT_STROKE) / 2;
+const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
 
-  if (sweepDegrees <= 0) {
-    return null;
-  }
+function ExpenseDonutChart({
+  categories,
+  holeColor,
+  total,
+}: {
+  categories: { amount: number; category: Category }[];
+  holeColor: string;
+  total: number;
+}) {
+  let offset = 0;
 
-  if (sweepDegrees > 180) {
+  const segments = categories.map((item) => {
+    const dash = (item.amount / total) * DONUT_CIRCUMFERENCE;
+    const currentOffset = offset;
+    offset += dash;
+
     return (
-      <>
-        <DonutSegment color={color} start={start} end={start + 0.5} />
-        <DonutSegment color={color} start={start + 0.5} end={end} />
-      </>
+      <Circle
+        key={item.category.id}
+        cx={DONUT_CENTER}
+        cy={DONUT_CENTER}
+        fill="none"
+        r={DONUT_RADIUS}
+        stroke={item.category.color}
+        strokeDasharray={`${dash} ${DONUT_CIRCUMFERENCE - dash}`}
+        strokeDashoffset={-currentOffset}
+        strokeLinecap="butt"
+        strokeWidth={DONUT_STROKE}
+        transform={`rotate(-90 ${DONUT_CENTER} ${DONUT_CENTER})`}
+      />
     );
-  }
+  });
 
   return (
-    <View style={[styles.segmentContainer, { transform: [{ rotate: `${startDegrees}deg` }] }]}>
-      <View style={[styles.segmentClip, sweepDegrees > 90 ? styles.segmentClipWide : undefined]}>
-        <View style={[styles.segment, { backgroundColor: color, transform: [{ rotate: `${sweepDegrees}deg` }] }]} />
+    <View style={styles.donut}>
+      <Svg height={DONUT_SIZE} width={DONUT_SIZE} viewBox={`0 0 ${DONUT_SIZE} ${DONUT_SIZE}`}>
+        {segments}
+      </Svg>
+      <View style={[styles.donutHole, { backgroundColor: holeColor }]}>
+        <AppText style={styles.donutValue}>{compactCurrency(total, 'VND')}</AppText>
+        <AppText variant="caption">Spent</AppText>
       </View>
     </View>
   );
@@ -131,18 +159,7 @@ export function ReportsScreen() {
           <AppText variant="caption">No category spending this month.</AppText>
         ) : (
           <View style={styles.donutSection}>
-            <View style={styles.donut}>
-              {categories.reduce<React.ReactNode[]>((segments, item, index) => {
-                const start = categories.slice(0, index).reduce((sum, categoryItem) => sum + categoryItem.amount, 0) / categoryTotal;
-                const end = start + item.amount / categoryTotal;
-                segments.push(<DonutSegment key={item.category.id} color={item.category.color} start={start} end={end} />);
-                return segments;
-              }, [])}
-              <View style={[styles.donutHole, { backgroundColor: colors.surface }]}>
-                <AppText style={styles.donutValue}>{compactCurrency(categoryTotal, 'VND')}</AppText>
-                <AppText variant="caption">Spent</AppText>
-              </View>
-            </View>
+            <ExpenseDonutChart categories={categories} holeColor={colors.surface} total={categoryTotal} />
             <View style={styles.legend}>
               {categories.map((item) => (
                 <View key={item.category.id} style={styles.legendRow}>
@@ -221,35 +238,8 @@ const styles = StyleSheet.create({
   donut: {
     borderRadius: 80,
     height: 160,
-    overflow: 'hidden',
     position: 'relative',
     width: 160,
-  },
-  segmentContainer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  segmentClip: {
-    height: 160,
-    overflow: 'hidden',
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: 80,
-  },
-  segmentClipWide: {
-    left: 0,
-    right: undefined,
-    width: 160,
-  },
-  segment: {
-    borderBottomLeftRadius: 80,
-    borderTopLeftRadius: 80,
-    height: 160,
-    left: -80,
-    position: 'absolute',
-    top: 0,
-    transformOrigin: 'right center',
-    width: 80,
   },
   donutHole: {
     alignItems: 'center',
