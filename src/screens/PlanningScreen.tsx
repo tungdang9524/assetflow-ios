@@ -67,6 +67,16 @@ export function SavingsGoalsScreen() {
   const [goalTarget, setGoalTarget] = useState('');
   const [goalCurrent, setGoalCurrent] = useState('');
   const [goalAdjustments, setGoalAdjustments] = useState<Record<string, string>>({});
+  const sortedGoals = [...state.savingsGoals].sort((firstGoal, secondGoal) => {
+    const firstCompleted = firstGoal.targetAmount > 0 && firstGoal.currentAmount >= firstGoal.targetAmount;
+    const secondCompleted = secondGoal.targetAmount > 0 && secondGoal.currentAmount >= secondGoal.targetAmount;
+
+    if (firstCompleted === secondCompleted) {
+      return 0;
+    }
+
+    return firstCompleted ? 1 : -1;
+  });
 
   function addGoal() {
     const target = parseAmount(goalTarget);
@@ -123,7 +133,7 @@ export function SavingsGoalsScreen() {
         <PrimaryButton label="Add goal" icon="flag-outline" onPress={addGoal} />
 
         <View style={styles.itemList}>
-          {state.savingsGoals.map((goal) => {
+          {sortedGoals.map((goal) => {
             const percent = goal.targetAmount <= 0 ? 0 : goal.currentAmount / goal.targetAmount;
             const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
             return (
@@ -185,6 +195,13 @@ export function DebtsLoansScreen() {
   const [debtName, setDebtName] = useState('');
   const [debtPerson, setDebtPerson] = useState('');
   const [debtAmount, setDebtAmount] = useState('');
+  const sortedDebts = [...state.debts].sort((firstDebt, secondDebt) => {
+    if (firstDebt.isPaid === secondDebt.isPaid) {
+      return 0;
+    }
+
+    return firstDebt.isPaid ? 1 : -1;
+  });
 
   function addDebtItem() {
     const amount = parseAmount(debtAmount);
@@ -235,7 +252,7 @@ export function DebtsLoansScreen() {
         <PrimaryButton label="Add debt" icon="person-add-outline" onPress={addDebtItem} />
 
         <View style={styles.itemList}>
-          {state.debts.map((debt) => (
+          {sortedDebts.map((debt) => (
             <View key={debt.id} style={[styles.debtCard, { borderColor: debt.isPaid ? colors.border : debt.type === 'lent' ? colors.primary : colors.warning }]}>
               <View style={styles.itemTop}>
                 <View style={[styles.goalIcon, { backgroundColor: debt.type === 'lent' ? colors.primarySoft : `${colors.warning}20` }]}>
