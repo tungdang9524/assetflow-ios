@@ -298,7 +298,7 @@ export function AddAccountScreen() {
           <View style={styles.inputGroup}>
             <View style={styles.rowHeader}>
               <AppText variant="caption">Crypto assets</AppText>
-              <Pressable style={[styles.smallButton, { borderColor: colors.border }]} onPress={() => navigation.navigate('AddCryptoHolding', { accountId: editingAccount?.id })}>
+              <Pressable style={[styles.smallButton, { borderColor: colors.border }]} onPress={() => navigation.navigate('AddCryptoHolding', { accountId: editingAccount?.id, holding: undefined })}>
                 <Ionicons name="add" size={16} color={colors.primary} />
                 <AppText color={colors.primary} style={styles.smallButtonText}>Add</AppText>
               </Pressable>
@@ -431,6 +431,7 @@ export function AddCryptoHoldingScreen() {
       color: selectedCrypto.color,
     };
 
+    navigation.setParams({ holding: undefined });
     navigation.navigate('AddAccount', { accountId: route.params?.accountId, cryptoHolding: nextHolding });
   }
 
