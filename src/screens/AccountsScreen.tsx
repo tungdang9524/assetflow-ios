@@ -153,7 +153,7 @@ export function AccountsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen scrollEnabled={!isReordering}>
       <View>
         <AppText variant="caption">Accounts</AppText>
         <AppText variant="title">Money buckets</AppText>

@@ -6,9 +6,10 @@ import { useAppTheme } from '../theme/AppThemeProvider';
 
 interface ScreenProps extends PropsWithChildren {
   scroll?: boolean;
+  scrollEnabled?: boolean;
 }
 
-export function Screen({ children, scroll = true }: ScreenProps) {
+export function Screen({ children, scroll = true, scrollEnabled = true }: ScreenProps) {
   const { colors } = useAppTheme();
 
   if (!scroll) {
@@ -21,7 +22,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} scrollEnabled={scrollEnabled} showsVerticalScrollIndicator={false}>
         {children}
       </ScrollView>
     </SafeAreaView>
