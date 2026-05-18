@@ -269,25 +269,27 @@ export function AddAccountScreen() {
           </Pressable>
           {isTypeDropdownOpen ? (
             <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-              {accountTypes.map((item) => (
-                <Pressable
-                  key={item}
-                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
-                  onPress={() => {
-                    setAccountType(item);
-                    setIsTypeDropdownOpen(false);
-                    if (item === 'crypto') {
-                      setCurrency('USD');
-                    }
-                  }}
-                >
-                  <View style={[styles.typeIcon, { backgroundColor: colors.primarySoft }]}>
-                    <Ionicons name={iconsByType[item]} size={18} color={colors.primary} />
-                  </View>
-                  <AppText style={styles.optionText}>{formatAccountType(item)}</AppText>
-                  {item === accountType ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
-                </Pressable>
-              ))}
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {accountTypes.map((item) => (
+                  <Pressable
+                    key={item}
+                    style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                    onPress={() => {
+                      setAccountType(item);
+                      setIsTypeDropdownOpen(false);
+                      if (item === 'crypto') {
+                        setCurrency('USD');
+                      }
+                    }}
+                  >
+                    <View style={[styles.typeIcon, { backgroundColor: colors.primarySoft }]}>
+                      <Ionicons name={iconsByType[item]} size={18} color={colors.primary} />
+                    </View>
+                    <AppText style={styles.optionText}>{formatAccountType(item)}</AppText>
+                    {item === accountType ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
           ) : null}
         </View>
