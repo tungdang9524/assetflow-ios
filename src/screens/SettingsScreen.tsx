@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
+import ExpoClipboard from 'expo-clipboard/build/ExpoClipboard';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -519,7 +519,7 @@ export function BackupSettingsScreen() {
   function generateBackup() {
     const nextBackupText = JSON.stringify(state, null, 2);
     setBackupText(nextBackupText);
-    Clipboard.setStringAsync(nextBackupText)
+    ExpoClipboard.setStringAsync(nextBackupText)
       .then(() => Alert.alert('Backup copied', 'The JSON backup was copied to your clipboard.'))
       .catch(() => Alert.alert('Backup generated', 'The JSON backup is ready, but it could not be copied to the clipboard.'));
   }
