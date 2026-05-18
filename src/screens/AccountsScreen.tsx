@@ -30,7 +30,7 @@ interface DraggableAccountRowProps {
   convertedBalance?: string;
   getScrollY: () => number;
   onDrop: (accountId: string, targetIndex: number) => void;
-  onDragMove: (moveY: number) => void;
+  onDragMove: (moveY: number) => number;
   onDragStateChange: (isDragging: boolean) => void;
   onOpen: (accountId: string) => void;
 }
@@ -75,9 +75,9 @@ function DraggableAccountRow({
         dragY.setValue(0);
       },
       onPanResponderMove: (_, gestureState) => {
-        const effectiveDy = gestureState.dy + getScrollY() - startScrollY.current;
+        const currentScrollY = onDragMove(gestureState.moveY);
+        const effectiveDy = gestureState.dy + currentScrollY - startScrollY.current;
         dragY.setValue(effectiveDy);
-        onDragMove(gestureState.moveY);
       },
       onPanResponderRelease: (_, gestureState) => {
         setIsDragging(false);
@@ -197,6 +197,8 @@ export function AccountsScreen() {
       scrollY.current = nextY;
       scrollRef.current?.scrollTo({ y: nextY, animated: false });
     }
+
+    return scrollY.current;
   }
 
   return (
