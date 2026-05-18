@@ -1,4 +1,4 @@
-import { Account, Budget, Category, Debt, FinanceState, RecurringTransaction, SavingsGoal, Transaction } from '../models/finance';
+import { Account, AppSettings, Budget, Category, Debt, FinanceState, RecurringTransaction, SavingsGoal, Transaction } from '../models/finance';
 import { getCryptoAsset } from './cryptoAssets';
 import { getMonthKey } from '../utils/dates';
 
@@ -210,6 +210,15 @@ export const sampleSavingsGoals: SavingsGoal[] = [
   },
 ];
 
+export const createDefaultSettings = (): AppSettings => ({
+  baseCurrency: 'VND',
+  usdToVndRate: 25000,
+  theme: 'system',
+  autoRateUpdates: true,
+  rateSource: 'manual',
+  pinEnabled: false,
+});
+
 export const createSampleState = (): FinanceState => ({
   accounts: sampleAccounts,
   categories: sampleCategories,
@@ -228,12 +237,17 @@ export const createSampleState = (): FinanceState => ({
       priceUsd: sampleCrypto.fallbackPriceUsd,
     },
   ],
-  settings: {
-    baseCurrency: 'VND',
-    usdToVndRate: 25000,
-    theme: 'system',
-    autoRateUpdates: true,
-    rateSource: 'manual',
-    pinEnabled: false,
-  },
+  settings: createDefaultSettings(),
+});
+
+export const createEmptyState = (): FinanceState => ({
+  accounts: [],
+  categories: sampleCategories,
+  transactions: [],
+  recurringTransactions: [],
+  budgets: [],
+  debts: [],
+  savingsGoals: [],
+  cryptoWatchlist: [],
+  settings: createDefaultSettings(),
 });

@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { createSampleState } from '../data/sampleData';
+import { createEmptyState, createSampleState } from '../data/sampleData';
 import {
   Account,
   AppSettings,
@@ -49,6 +49,7 @@ interface FinanceContextValue {
   refreshMarketRates: () => Promise<void>;
   importState: (state: FinanceState) => void;
   resetSampleData: () => void;
+  resetData: () => void;
 }
 
 interface TransactionMutationResult {
@@ -642,6 +643,10 @@ export function FinanceProvider({ children }: PropsWithChildren) {
     setState(createSampleState());
   }, []);
 
+  const resetData = useCallback(() => {
+    setState(createEmptyState());
+  }, []);
+
   const importState = useCallback((nextState: FinanceState) => {
     setState(normalizeState(nextState));
   }, []);
@@ -679,6 +684,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       refreshMarketRates,
       importState,
       resetSampleData,
+      resetData,
     }),
     [
       addAccount,
@@ -703,6 +709,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       reorderAccounts,
       refreshMarketRates,
       resetSampleData,
+      resetData,
       state,
       toggleDebtPaid,
       toggleRecurringTransaction,

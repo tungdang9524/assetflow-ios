@@ -112,7 +112,7 @@ export function SettingsScreen() {
           onPress={() => navigation.navigate('SecuritySettings')}
         />
         <SettingsRow icon="archive-outline" title="Backup" subtitle="Export or import JSON data" onPress={() => navigation.navigate('BackupSettings')} />
-        <SettingsRow icon="refresh-outline" title="Sample data" subtitle="Restore starter data" onPress={() => navigation.navigate('SampleDataSettings')} />
+        <SettingsRow icon="refresh-outline" title="Data" subtitle="Restore samples or reset to zero" onPress={() => navigation.navigate('SampleDataSettings')} />
         <SettingsRow icon="information-circle-outline" title="Info" subtitle="Project details and app icon" onPress={() => navigation.navigate('InfoSettings')} />
       </View>
     </Screen>
@@ -584,21 +584,44 @@ export function BackupSettingsScreen() {
 }
 
 export function SampleDataSettingsScreen() {
-  const { resetSampleData } = useFinance();
+  const { resetData, resetSampleData } = useFinance();
+  const { colors } = useAppTheme();
 
-  function confirmReset() {
-    Alert.alert('Reset sample data', 'This restores the starter accounts, budgets, transactions, and settings.', [
+  function confirmSampleReset() {
+    Alert.alert('Restore sample data', 'This restores the starter accounts, transactions, budgets, settings, categories, goals, and debts.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: resetSampleData },
+      { text: 'Restore', style: 'destructive', onPress: resetSampleData },
+    ]);
+  }
+
+  function confirmDataReset() {
+    Alert.alert('Reset data to zero', 'This clears all accounts, transactions, budgets, recurring items, goals, debts, and crypto watchlist. Default categories stay available.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset', style: 'destructive', onPress: resetData },
     ]);
   }
 
   return (
     <Screen>
       <Card style={styles.card}>
+        <AppText variant="heading">Data settings</AppText>
+        <AppText variant="caption">Manage starter data or clear the app back to an empty state.</AppText>
+      </Card>
+
+      <Card style={styles.card}>
         <AppText variant="heading">Sample data</AppText>
         <AppText variant="caption">Restore starter accounts, transactions, budgets, settings, categories, goals, and debts.</AppText>
-        <PrimaryButton label="Reset sample data" icon="refresh-outline" onPress={confirmReset} />
+        <PrimaryButton label="Restore sample data" icon="refresh-outline" onPress={confirmSampleReset} />
+      </Card>
+
+      <Card style={styles.card}>
+        <AppText variant="heading">Reset to zero</AppText>
+        <AppText variant="caption">Clear all user data and keep only the default categories.</AppText>
+        <Pressable style={[styles.deleteButton, { borderColor: colors.danger }]} onPress={confirmDataReset}>
+          <AppText color={colors.danger} style={styles.segmentLabel}>
+            Reset data to zero
+          </AppText>
+        </Pressable>
       </Card>
     </Screen>
   );
