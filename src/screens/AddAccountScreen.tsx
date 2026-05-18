@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, StackActions, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppText } from '../components/AppText';
@@ -431,11 +431,9 @@ export function AddCryptoHoldingScreen() {
       color: selectedCrypto.color,
     };
 
-    navigation.navigate({
-      name: 'AddAccount',
-      params: { accountId: route.params?.accountId, cryptoHolding: nextHolding },
-      merge: true,
-    });
+    navigation.dispatch(
+      StackActions.popTo('AddAccount', { accountId: route.params?.accountId, cryptoHolding: nextHolding }, { merge: true }),
+    );
   }
 
   return (
