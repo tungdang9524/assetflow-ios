@@ -71,12 +71,14 @@ const styles = StyleSheet.create({
   details: {
     flex: 1,
     gap: 2,
+    minWidth: 0,
   },
   name: {
     fontWeight: '700',
   },
   amounts: {
     alignItems: 'flex-end',
+    flexShrink: 1,
     gap: 2,
   },
   balance: {

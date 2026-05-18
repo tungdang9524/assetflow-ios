@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,8 +19,9 @@ type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AccountsLis
 
 export function AccountsScreen() {
   const navigation = useNavigation<Navigation>();
-  const { state, refreshMarketRates, isRefreshingRates } = useFinance();
+  const { state, refreshMarketRates, isRefreshingRates, moveAccount } = useFinance();
   const { colors } = useAppTheme();
+  const [isReordering, setIsReordering] = useState(false);
   const netWorth = getNetWorthVnd(state.accounts, state.settings.usdToVndRate);
 
   function handleRefreshRates() {
@@ -77,12 +78,74 @@ export function AccountsScreen() {
         </Pressable>
       </View>
 
-      <SectionHeader title="All accounts" />
+      <SectionHeader
+        title="All accounts"
+        action={
+          state.accounts.length > 1 ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.orderToggle,
+                {
+                  borderColor: isReordering ? colors.primary : colors.border,
+                  backgroundColor: isReordering ? colors.primarySoft : colors.surface,
+                  opacity: pressed ? 0.78 : 1,
+                },
+              ]}
+              onPress={() => setIsReordering((value) => !value)}
+            >
+              <Ionicons name={isReordering ? 'checkmark' : 'swap-vertical-outline'} size={18} color={colors.primary} />
+              <AppText color={colors.primary} style={styles.orderToggleLabel}>
+                {isReordering ? 'Done' : 'Order'}
+              </AppText>
+            </Pressable>
+          ) : null
+        }
+      />
       <View style={styles.list}>
-        {state.accounts.map((account) => (
-          <Pressable key={account.id} onPress={() => navigation.navigate('AddAccount', { accountId: account.id })}>
-            <AccountCard account={account} convertedBalance={getConvertedBalance(account)} />
-          </Pressable>
+        {state.accounts.map((account, index) => (
+          <View key={account.id} style={styles.accountRow}>
+            {isReordering ? (
+              <View style={styles.orderControls}>
+                <Pressable
+                  accessibilityLabel={`Move ${account.name} up`}
+                  disabled={index === 0}
+                  style={({ pressed }) => [
+                    styles.orderButton,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      opacity: index === 0 ? 0.35 : pressed ? 0.72 : 1,
+                    },
+                  ]}
+                  onPress={() => moveAccount(account.id, 'up')}
+                >
+                  <Ionicons name="chevron-up" size={18} color={colors.primary} />
+                </Pressable>
+                <Pressable
+                  accessibilityLabel={`Move ${account.name} down`}
+                  disabled={index === state.accounts.length - 1}
+                  style={({ pressed }) => [
+                    styles.orderButton,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      opacity: index === state.accounts.length - 1 ? 0.35 : pressed ? 0.72 : 1,
+                    },
+                  ]}
+                  onPress={() => moveAccount(account.id, 'down')}
+                >
+                  <Ionicons name="chevron-down" size={18} color={colors.primary} />
+                </Pressable>
+              </View>
+            ) : null}
+            <Pressable
+              disabled={isReordering}
+              style={styles.accountCardPressable}
+              onPress={() => navigation.navigate('AddAccount', { accountId: account.id })}
+            >
+              <AccountCard account={account} convertedBalance={getConvertedBalance(account)} />
+            </Pressable>
+          </View>
         ))}
       </View>
     </Screen>
@@ -122,5 +185,37 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 12,
+  },
+  orderToggle: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: 12,
+  },
+  orderToggleLabel: {
+    fontWeight: '800',
+  },
+  accountRow: {
+    alignItems: 'stretch',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  accountCardPressable: {
+    flex: 1,
+  },
+  orderControls: {
+    gap: 8,
+    justifyContent: 'center',
+  },
+  orderButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
   },
 });

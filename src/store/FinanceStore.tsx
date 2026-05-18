@@ -23,6 +23,7 @@ interface FinanceContextValue {
   isRefreshingRates: boolean;
   addAccount: (account: Omit<Account, 'id'>) => void;
   updateAccount: (accountId: string, updates: Partial<Account>) => void;
+  moveAccount: (accountId: string, direction: 'up' | 'down') => void;
   deleteAccount: (accountId: string) => boolean;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }) => TransactionMutationResult;
   updateTransaction: (transactionId: string, updates: Omit<Transaction, 'id'>) => TransactionMutationResult;
@@ -185,6 +186,26 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       ...currentState,
       accounts: currentState.accounts.map((account) => (account.id === accountId ? { ...account, ...updates, id: account.id } : account)),
     }));
+  }, []);
+
+  const moveAccount = useCallback((accountId: string, direction: 'up' | 'down') => {
+    setState((currentState) => {
+      const currentIndex = currentState.accounts.findIndex((account) => account.id === accountId);
+      const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentState.accounts.length) {
+        return currentState;
+      }
+
+      const accounts = [...currentState.accounts];
+      const [account] = accounts.splice(currentIndex, 1);
+      accounts.splice(nextIndex, 0, account);
+
+      return {
+        ...currentState,
+        accounts,
+      };
+    });
   }, []);
 
   const deleteAccount = useCallback((accountId: string) => {
@@ -607,6 +628,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       isRefreshingRates,
       addAccount,
       updateAccount,
+      moveAccount,
       deleteAccount,
       addTransaction,
       updateTransaction,
@@ -653,6 +675,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
       importState,
       isReady,
       isRefreshingRates,
+      moveAccount,
       refreshMarketRates,
       resetSampleData,
       state,
