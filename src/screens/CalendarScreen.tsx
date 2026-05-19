@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 
 import { AppText } from '../components/AppText';
 import { Screen } from '../components/Screen';
@@ -119,40 +120,16 @@ export function CalendarScreen() {
               </Pressable>
             </View>
             <View style={styles.pickerColumns}>
-              <ScrollView style={styles.pickerColumn} showsVerticalScrollIndicator={false}>
-                {monthNames.map((month, index) => {
-                  const selected = pickerMonth === index;
-
-                  return (
-                    <Pressable
-                      key={month}
-                      style={[styles.pickerOption, { backgroundColor: selected ? colors.primarySoft : colors.surface }]}
-                      onPress={() => setPickerMonth(index)}
-                    >
-                      <AppText color={selected ? colors.primary : colors.text} style={styles.pickerOptionText}>
-                        {month}
-                      </AppText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              <ScrollView style={styles.pickerColumn} showsVerticalScrollIndicator={false}>
-                {yearOptions.map((year) => {
-                  const selected = pickerYear === year;
-
-                  return (
-                    <Pressable
-                      key={year}
-                      style={[styles.pickerOption, { backgroundColor: selected ? colors.primarySoft : colors.surface }]}
-                      onPress={() => setPickerYear(year)}
-                    >
-                      <AppText color={selected ? colors.primary : colors.text} style={styles.pickerOptionText}>
-                        {year}
-                      </AppText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <Picker selectedValue={pickerMonth} onValueChange={(value) => setPickerMonth(value)} itemStyle={[styles.pickerItem, { color: colors.text }]} style={styles.pickerColumn}>
+                {monthNames.map((month, index) => (
+                  <Picker.Item key={month} label={month} value={index} />
+                ))}
+              </Picker>
+              <Picker selectedValue={pickerYear} onValueChange={(value) => setPickerYear(value)} itemStyle={[styles.pickerItem, { color: colors.text }]} style={styles.pickerColumn}>
+                {yearOptions.map((year) => (
+                  <Picker.Item key={year} label={String(year)} value={year} />
+                ))}
+              </Picker>
             </View>
             <Pressable style={({ pressed }) => [styles.applyButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]} onPress={applyMonthPicker}>
               <AppText color="#FFFFFF" style={styles.applyButtonText}>
@@ -314,20 +291,15 @@ const styles = StyleSheet.create({
   pickerColumns: {
     flexDirection: 'row',
     gap: 10,
-    minHeight: 260,
+    height: 220,
   },
   pickerColumn: {
     flex: 1,
   },
-  pickerOption: {
-    borderRadius: 12,
-    justifyContent: 'center',
-    marginBottom: 6,
-    minHeight: 44,
-    paddingHorizontal: 12,
-  },
-  pickerOptionText: {
+  pickerItem: {
+    fontSize: 20,
     fontWeight: '800',
+    height: 180,
   },
   applyButton: {
     alignItems: 'center',
