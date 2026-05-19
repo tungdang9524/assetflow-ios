@@ -14,9 +14,10 @@ interface TransactionRowProps {
   account?: Account;
   toAccount?: Account;
   category?: Category;
+  hideDate?: boolean;
 }
 
-export function TransactionRow({ transaction, account, toAccount, category }: TransactionRowProps) {
+export function TransactionRow({ transaction, account, toAccount, category, hideDate = false }: TransactionRowProps) {
   const { colors } = useAppTheme();
   const isIncome = transaction.type === 'income';
   const isTransfer = transaction.type === 'transfer';
@@ -34,7 +35,7 @@ export function TransactionRow({ transaction, account, toAccount, category }: Tr
           {title}
         </AppText>
         <AppText variant="caption">
-          {formatShortDate(transaction.date)} - {transaction.note || account?.name || 'No note'}
+          {hideDate ? transaction.note || account?.name || 'No note' : `${formatShortDate(transaction.date)} - ${transaction.note || account?.name || 'No note'}`}
         </AppText>
       </View>
       <AppText variant="body" color={amountColor} style={styles.amount}>
