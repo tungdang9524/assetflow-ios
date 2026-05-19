@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 
@@ -48,6 +48,13 @@ function formatDateHeader(dateKey: string) {
   }).format(new Date(year, month - 1, day));
 }
 
+function formatMonthLabel(date: Date) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+}
+
 export function TransactionsScreen() {
   const navigation = useNavigation<Navigation>();
   const { state } = useFinance();
@@ -56,8 +63,17 @@ export function TransactionsScreen() {
   const [typeFilter, setTypeFilter] = React.useState<TransactionType | 'all'>('all');
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
+  const [isDatePickerOpen, setIsDatePickerOpen] = React.useState(false);
+  const [pickerMonth, setPickerMonth] = React.useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [draftFromDate, setDraftFromDate] = React.useState('');
+  const [draftToDate, setDraftToDate] = React.useState('');
   const fromFilterDate = parseDateFilter(fromDate);
   const toFilterDate = parseDateFilter(toDate, true);
+  const rangeLabel = fromDate && toDate ? `${fromDate} to ${toDate}` : fromDate ? `${fromDate} onward` : 'Choose date range';
+  const firstPickerDay = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), 1);
+  const pickerDaysInMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 0).getDate();
+  const pickerLeadingBlankDays = (firstPickerDay.getDay() + 6) % 7;
+  const pickerDayKeys = Array.from({ length: pickerDaysInMonth }, (_, index) => getDateKey(new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), index + 1)));
   const filteredTransactions = state.transactions.filter((transaction) => {
     const account = state.accounts.find((item) => item.id === transaction.accountId);
     const category = state.categories.find((item) => item.id === transaction.categoryId);
@@ -82,6 +98,41 @@ export function TransactionsScreen() {
     groups.push({ dateKey, transactions: [transaction] });
     return groups;
   }, []);
+
+  function openDateRangePicker() {
+    setDraftFromDate(fromDate);
+    setDraftToDate(toDate);
+    setPickerMonth(parseDateFilter(fromDate) ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    setIsDatePickerOpen(true);
+  }
+
+  function selectRangeDate(dateKey: string) {
+    if (!draftFromDate || draftToDate || dateKey < draftFromDate) {
+      setDraftFromDate(dateKey);
+      setDraftToDate('');
+      return;
+    }
+
+    if (dateKey === draftFromDate) {
+      setDraftToDate('');
+      return;
+    }
+
+    setDraftToDate(dateKey);
+  }
+
+  function applyDateRange() {
+    setFromDate(draftFromDate);
+    setToDate(draftToDate);
+    setIsDatePickerOpen(false);
+  }
+
+  function clearDateRange() {
+    setFromDate('');
+    setToDate('');
+    setDraftFromDate('');
+    setDraftToDate('');
+  }
 
   return (
     <Screen>
@@ -123,31 +174,86 @@ export function TransactionsScreen() {
             );
           })}
         </View>
-        <View style={styles.dateFilters}>
-          <TextInput
-            placeholder="From YYYY-MM-DD"
-            placeholderTextColor={colors.muted}
-            value={fromDate}
-            onChangeText={setFromDate}
-            style={[styles.dateInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-          />
-          <TextInput
-            placeholder="To YYYY-MM-DD"
-            placeholderTextColor={colors.muted}
-            value={toDate}
-            onChangeText={setToDate}
-            style={[styles.dateInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-          />
-        </View>
+        <Pressable style={[styles.rangeButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={openDateRangePicker}>
+          <View>
+            <AppText variant="caption">Date range</AppText>
+            <AppText color={fromDate ? colors.text : colors.muted} style={styles.rangeText}>{rangeLabel}</AppText>
+          </View>
+          <AppText color={colors.primary} style={styles.rangeIcon}>Calendar</AppText>
+        </Pressable>
         {fromDate || toDate ? (
-          <Pressable style={[styles.clearButton, { borderColor: colors.border }]} onPress={() => {
-            setFromDate('');
-            setToDate('');
-          }}>
+          <Pressable style={[styles.clearButton, { borderColor: colors.border }]} onPress={clearDateRange}>
             <AppText color={colors.primary} style={styles.clearButtonText}>Clear date filter</AppText>
           </Pressable>
         ) : null}
       </View>
+
+      <Modal animationType="fade" transparent visible={isDatePickerOpen} onRequestClose={() => setIsDatePickerOpen(false)}>
+        <View style={styles.modalScrim}>
+          <View style={[styles.rangeCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.rangeHeader}>
+              <AppText variant="heading">Date range</AppText>
+              <Pressable style={[styles.closeButton, { borderColor: colors.border }]} onPress={() => setIsDatePickerOpen(false)}>
+                <AppText style={styles.closeButtonText}>Close</AppText>
+              </Pressable>
+            </View>
+            <View style={styles.monthNav}>
+              <Pressable style={[styles.monthButton, { borderColor: colors.border }]} onPress={() => setPickerMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>
+                <AppText style={styles.monthButtonText}>‹</AppText>
+              </Pressable>
+              <AppText style={styles.monthTitle}>{formatMonthLabel(pickerMonth)}</AppText>
+              <Pressable style={[styles.monthButton, { borderColor: colors.border }]} onPress={() => setPickerMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>
+                <AppText style={styles.monthButtonText}>›</AppText>
+              </Pressable>
+            </View>
+            <View style={styles.weekHeader}>
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
+                <AppText key={`${day}-${index}`} variant="caption" style={styles.weekLabel}>{day}</AppText>
+              ))}
+            </View>
+            <View style={styles.dateGrid}>
+              {Array.from({ length: pickerLeadingBlankDays }).map((_, index) => (
+                <View key={`blank-${index}`} style={styles.dateCell} />
+              ))}
+              {pickerDayKeys.map((dateKey) => {
+                const day = Number(dateKey.slice(-2));
+                const isStart = dateKey === draftFromDate;
+                const isEnd = dateKey === draftToDate;
+                const inRange = Boolean(draftFromDate && draftToDate && dateKey > draftFromDate && dateKey < draftToDate);
+                const selected = isStart || isEnd;
+
+                return (
+                  <Pressable
+                    key={dateKey}
+                    style={[
+                      styles.dateCell,
+                      {
+                        backgroundColor: selected ? colors.primary : inRange ? colors.primarySoft : colors.surface,
+                        borderColor: selected || inRange ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => selectRangeDate(dateKey)}
+                  >
+                    <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.dateCellText}>{day}</AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <AppText variant="caption">{draftFromDate ? (draftToDate ? `${draftFromDate} to ${draftToDate}` : `Start: ${draftFromDate}`) : 'Select a start date, then an end date.'}</AppText>
+            <View style={styles.rangeActions}>
+              <Pressable style={[styles.secondaryRangeButton, { borderColor: colors.border }]} onPress={() => {
+                setDraftFromDate('');
+                setDraftToDate('');
+              }}>
+                <AppText style={styles.clearButtonText}>Clear</AppText>
+              </Pressable>
+              <Pressable style={[styles.applyButton, { backgroundColor: colors.primary }]} onPress={applyDateRange}>
+                <AppText color="#FFFFFF" style={styles.applyButtonText}>Apply</AppText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.groupList}>
         {groupedTransactions.map((group) => (
@@ -212,17 +318,20 @@ const styles = StyleSheet.create({
   segmentText: {
     fontWeight: '800',
   },
-  dateFilters: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dateInput: {
+  rangeButton: {
+    alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
-    flex: 1,
-    fontSize: 13,
-    minHeight: 44,
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 54,
+    paddingHorizontal: 12,
+  },
+  rangeText: {
+    fontWeight: '800',
+  },
+  rangeIcon: {
+    fontWeight: '800',
   },
   clearButton: {
     alignItems: 'center',
@@ -232,6 +341,101 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   clearButtonText: {
+    fontWeight: '800',
+  },
+  modalScrim: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 18,
+  },
+  rangeCard: {
+    borderRadius: 18,
+    gap: 14,
+    padding: 16,
+    width: '100%',
+  },
+  rangeHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+    paddingHorizontal: 12,
+  },
+  closeButtonText: {
+    fontWeight: '800',
+  },
+  monthNav: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  monthButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
+  monthButtonText: {
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 28,
+  },
+  monthTitle: {
+    fontWeight: '900',
+  },
+  weekHeader: {
+    flexDirection: 'row',
+  },
+  weekLabel: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  dateGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 0,
+  },
+  dateCell: {
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: 'center',
+    width: `${100 / 7}%`,
+  },
+  dateCellText: {
+    fontWeight: '800',
+  },
+  rangeActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  secondaryRangeButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 46,
+  },
+  applyButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 46,
+  },
+  applyButtonText: {
     fontWeight: '800',
   },
 });
