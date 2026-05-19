@@ -510,12 +510,12 @@ export function SecuritySettingsScreen() {
 
   function validateNewPin() {
     if (newPin.trim().length < 4) {
-      Alert.alert('Mã PIN quá ngắn', 'Dùng ít nhất 4 chữ số.');
+      Alert.alert('PIN too short', 'Use at least 4 digits.');
       return false;
     }
 
     if (newPin.trim() !== confirmPin.trim()) {
-      Alert.alert('Mã PIN không khớp', 'Nhập lại cùng một mã PIN.');
+      Alert.alert('PIN does not match', 'Enter the same PIN twice.');
       return false;
     }
 
@@ -534,7 +534,7 @@ export function SecuritySettingsScreen() {
     }
 
     if (currentPin.trim() !== state.settings.pinCode) {
-      Alert.alert('Sai mã PIN', 'Nhập lại mã PIN hiện tại để tiếp tục.');
+      Alert.alert('Wrong PIN', 'Enter your current PIN to continue.');
       return;
     }
 
@@ -554,8 +554,8 @@ export function SecuritySettingsScreen() {
     }
   }
 
-  const modalTitle = pinModalMode === 'enable' ? 'Thiết lập mã PIN' : pinModalMode === 'change' ? 'Đổi mã PIN' : 'Tắt mã PIN';
-  const modalAction = pinModalMode === 'disable' ? 'Tắt mã PIN' : pinModalMode === 'change' ? 'Đổi mã PIN' : 'Bật mã PIN';
+  const modalTitle = pinModalMode === 'enable' ? 'Set PIN' : pinModalMode === 'change' ? 'Change PIN' : 'Disable PIN';
+  const modalAction = pinModalMode === 'disable' ? 'Disable PIN' : pinModalMode === 'change' ? 'Change PIN' : 'Enable PIN';
 
   function handlePinSwitch(value: boolean) {
     if (value) {
@@ -572,9 +572,9 @@ export function SecuritySettingsScreen() {
         <View style={styles.toggleRow}>
           <View style={styles.toggleCopy}>
             <AppText variant="body" style={styles.value}>
-              Yêu cầu mã PIN khi khởi động
+              Require PIN on app start
             </AppText>
-            <AppText variant="caption">{state.settings.pinEnabled ? 'Đang bật.' : 'Đang tắt.'}</AppText>
+            <AppText variant="caption">{state.settings.pinEnabled ? 'PIN lock is on.' : 'PIN lock is off.'}</AppText>
           </View>
           <Switch
             value={state.settings.pinEnabled}
@@ -585,7 +585,7 @@ export function SecuritySettingsScreen() {
         </View>
         {state.settings.pinEnabled ? (
           <Pressable style={[styles.clearButton, { borderColor: colors.border }]} onPress={() => openPinModal('change')}>
-            <AppText style={styles.segmentLabel}>Đổi mã PIN</AppText>
+            <AppText style={styles.segmentLabel}>Change PIN</AppText>
           </Pressable>
         ) : null}
       </Card>
@@ -595,7 +595,7 @@ export function SecuritySettingsScreen() {
             <View style={styles.rowHeader}>
               <AppText variant="heading">{modalTitle}</AppText>
               <Pressable style={[styles.tag, { borderColor: colors.border }]} onPress={resetPinForm}>
-                <AppText style={styles.segmentLabel}>Hủy</AppText>
+                <AppText style={styles.segmentLabel}>Cancel</AppText>
               </Pressable>
             </View>
             {pinModalMode === 'change' || pinModalMode === 'disable' ? (
@@ -603,7 +603,7 @@ export function SecuritySettingsScreen() {
                 keyboardType="number-pad"
                 maxLength={6}
                 secureTextEntry
-                placeholder="Mã PIN hiện tại"
+                placeholder="Current PIN"
                 placeholderTextColor={colors.muted}
                 value={currentPin}
                 onChangeText={setCurrentPin}
@@ -616,7 +616,7 @@ export function SecuritySettingsScreen() {
                   keyboardType="number-pad"
                   maxLength={6}
                   secureTextEntry
-                  placeholder="Mã PIN mới"
+                  placeholder="New PIN"
                   placeholderTextColor={colors.muted}
                   value={newPin}
                   onChangeText={setNewPin}
@@ -626,7 +626,7 @@ export function SecuritySettingsScreen() {
                   keyboardType="number-pad"
                   maxLength={6}
                   secureTextEntry
-                  placeholder="Nhập lại mã PIN mới"
+                  placeholder="Re-enter new PIN"
                   placeholderTextColor={colors.muted}
                   value={confirmPin}
                   onChangeText={setConfirmPin}
