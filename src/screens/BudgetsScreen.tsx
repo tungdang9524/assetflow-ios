@@ -21,11 +21,71 @@ function parseAmount(value: string) {
 }
 
 type BudgetsNavigation = NativeStackNavigationProp<PlanningStackParamList, 'Budgets'>;
+type AddBudgetNavigation = NativeStackNavigationProp<PlanningStackParamList, 'AddBudget'>;
 type BudgetDetailNavigation = NativeStackNavigationProp<PlanningStackParamList, 'BudgetDetail'>;
 type BudgetDetailRoute = RouteProp<PlanningStackParamList, 'BudgetDetail'>;
 
 export function BudgetsScreen() {
   const navigation = useNavigation<BudgetsNavigation>();
+  const { state } = useFinance();
+  const { colors } = useAppTheme();
+  const monthKey = getMonthKey(new Date());
+  const budgets = state.budgets.filter((budget) => budget.month === monthKey);
+
+  return (
+    <Screen>
+      <View style={styles.titleRow}>
+        <View>
+          <AppText variant="caption">{formatMonthLabel(monthKey)}</AppText>
+          <AppText variant="title">Budgets</AppText>
+        </View>
+        <Pressable
+          accessibilityLabel="Add budget"
+          style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
+          onPress={() => navigation.navigate('AddBudget')}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </Pressable>
+      </View>
+
+      <View style={styles.list}>
+        {budgets.map((budget) => {
+          const category = state.categories.find((item) => item.id === budget.categoryId);
+          const progress = getBudgetProgress(budget, state.transactions, state.settings.usdToVndRate);
+          const alertText = progress.percent >= 1 ? 'Over budget' : progress.percent >= 0.8 ? 'Close to limit' : undefined;
+
+          return (
+            <Pressable key={budget.id} onPress={() => navigation.navigate('BudgetDetail', { budgetId: budget.id })}>
+              <Card style={[styles.budgetCard, { borderColor: colors.border }]}>
+                <View style={styles.row}>
+                  <View style={styles.copy}>
+                    <AppText variant="body" style={styles.category}>
+                      {category?.name ?? 'Category'}
+                    </AppText>
+                    <AppText variant="caption">
+                      {formatCurrency(progress.spent, 'VND')} spent - {formatCurrency(Math.max(progress.remaining, 0), 'VND')} left
+                    </AppText>
+                    {alertText ? <AppText color={progress.percent >= 1 ? colors.danger : colors.warning} variant="caption">{alertText}</AppText> : null}
+                  </View>
+                  <View style={styles.amountBlock}>
+                    <AppText variant="body" style={styles.amount}>
+                      {Math.round(progress.percent * 100)}%
+                    </AppText>
+                    <AppText variant="caption">{formatCurrency(budget.amount, budget.currency)}</AppText>
+                  </View>
+                </View>
+                <ProgressBar percent={progress.percent} color={category?.color} />
+              </Card>
+            </Pressable>
+          );
+        })}
+      </View>
+    </Screen>
+  );
+}
+
+export function AddBudgetScreen() {
+  const navigation = useNavigation<AddBudgetNavigation>();
   const { state, addBudget } = useFinance();
   const { colors } = useAppTheme();
   const monthKey = getMonthKey(new Date());
@@ -37,12 +97,6 @@ export function BudgetsScreen() {
   const budgetedCategoryIds = new Set(budgets.map((budget) => budget.categoryId));
   const availableCategories = expenseCategories.filter((category) => !budgetedCategoryIds.has(category.id));
   const selectedCategory = expenseCategories.find((category) => category.id === categoryId);
-
-  function resetForm() {
-    setCategoryId('');
-    setAmount('');
-    setIsCategoryDropdownOpen(false);
-  }
 
   function saveBudget() {
     const parsedAmount = parseAmount(amount);
@@ -64,16 +118,11 @@ export function BudgetsScreen() {
       month: monthKey,
     });
 
-    resetForm();
+    navigation.goBack();
   }
 
   return (
     <Screen>
-      <View>
-        <AppText variant="caption">{formatMonthLabel(monthKey)}</AppText>
-        <AppText variant="title">Budgets</AppText>
-      </View>
-
       <Card style={styles.formCard}>
         <View>
           <AppText variant="heading">Add budget</AppText>
@@ -130,39 +179,6 @@ export function BudgetsScreen() {
           <PrimaryButton label="Add budget" icon="save-outline" onPress={saveBudget} disabled={availableCategories.length === 0} />
         </View>
       </Card>
-
-      <View style={styles.list}>
-        {budgets.map((budget) => {
-          const category = state.categories.find((item) => item.id === budget.categoryId);
-          const progress = getBudgetProgress(budget, state.transactions, state.settings.usdToVndRate);
-          const alertText = progress.percent >= 1 ? 'Over budget' : progress.percent >= 0.8 ? 'Close to limit' : undefined;
-
-          return (
-            <Pressable key={budget.id} onPress={() => navigation.navigate('BudgetDetail', { budgetId: budget.id })}>
-              <Card style={[styles.budgetCard, { borderColor: colors.border }]}>
-                <View style={styles.row}>
-                  <View style={styles.copy}>
-                    <AppText variant="body" style={styles.category}>
-                      {category?.name ?? 'Category'}
-                    </AppText>
-                    <AppText variant="caption">
-                      {formatCurrency(progress.spent, 'VND')} spent - {formatCurrency(Math.max(progress.remaining, 0), 'VND')} left
-                    </AppText>
-                    {alertText ? <AppText color={progress.percent >= 1 ? colors.danger : colors.warning} variant="caption">{alertText}</AppText> : null}
-                  </View>
-                  <View style={styles.amountBlock}>
-                    <AppText variant="body" style={styles.amount}>
-                      {Math.round(progress.percent * 100)}%
-                    </AppText>
-                    <AppText variant="caption">{formatCurrency(budget.amount, budget.currency)}</AppText>
-                  </View>
-                </View>
-                <ProgressBar percent={progress.percent} color={category?.color} />
-              </Card>
-            </Pressable>
-          );
-        })}
-      </View>
     </Screen>
   );
 }
@@ -297,6 +313,18 @@ export function BudgetDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
   formCard: {
     gap: 14,
   },
