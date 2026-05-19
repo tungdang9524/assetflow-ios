@@ -95,6 +95,13 @@ export function SavingsGoalsScreen() {
     setGoalAdjustments((current) => ({ ...current, [goalId]: '' }));
   }
 
+  function confirmDeleteGoal(goalId: string, goalName: string) {
+    Alert.alert('Delete savings goal', `Delete ${goalName}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteSavingsGoal(goalId) },
+    ]);
+  }
+
   return (
     <Screen>
       <View style={styles.titleRow}>
@@ -126,7 +133,7 @@ export function SavingsGoalsScreen() {
                     <AppText style={[styles.itemTitle, isCompleted ? styles.paid : undefined]}>{goal.name}</AppText>
                     <AppText variant="caption">{Math.round(Math.min(percent, 1) * 100)}% complete</AppText>
                   </View>
-                  <Pressable style={styles.iconTap} onPress={() => deleteSavingsGoal(goal.id)}>
+                  <Pressable style={styles.iconTap} onPress={() => confirmDeleteGoal(goal.id, goal.name)}>
                     <Ionicons name="trash-outline" size={19} color={colors.danger} />
                   </Pressable>
                 </View>
@@ -228,6 +235,13 @@ export function DebtsLoansScreen() {
     return firstDebt.isPaid ? 1 : -1;
   });
 
+  function confirmDeleteDebt(debtId: string, debtName: string) {
+    Alert.alert('Delete debt or loan', `Delete ${debtName}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteDebt(debtId) },
+    ]);
+  }
+
   return (
     <Screen>
       <View style={styles.titleRow}>
@@ -257,7 +271,7 @@ export function DebtsLoansScreen() {
                     {debt.type === 'lent' ? 'Lent to' : 'Borrowed from'} {debt.person}
                   </AppText>
                 </Pressable>
-                <Pressable style={styles.iconTap} onPress={() => deleteDebt(debt.id)}>
+                <Pressable style={styles.iconTap} onPress={() => confirmDeleteDebt(debt.id, debt.name)}>
                   <Ionicons name="trash-outline" size={19} color={colors.danger} />
                 </Pressable>
               </View>
