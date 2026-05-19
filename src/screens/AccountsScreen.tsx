@@ -30,8 +30,9 @@ import { convertCurrency, formatCurrency } from '../utils/currency';
 
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AccountsList'>;
 
-const dragStep = 88;
-const reorderThreshold = 76;
+const defaultRowHeight = 88;
+const listGap = 12;
+const reorderThresholdRatio = 0.72;
 const autoScrollEdgeSize = 120;
 const autoScrollStep = 18;
 
@@ -41,8 +42,11 @@ interface DraggableAccountRowProps {
   isReordering: boolean;
   accountCount: number;
   convertedBalance?: string;
+  getAdjacentStep: (fromIndex: number, direction: 1 | -1) => number;
+  getMoveDistance: (fromIndex: number, toIndex: number) => number;
   getScrollY: () => number;
   onDragMove: (moveY: number) => number;
+  onRowHeightChange: (accountId: string, height: number) => void;
   onDragStateChange: (isDragging: boolean) => void;
   onOpen: (accountId: string) => void;
   onReorder: (accountId: string, targetIndex: number) => number;
@@ -54,8 +58,11 @@ function DraggableAccountRow({
   isReordering,
   accountCount,
   convertedBalance,
+  getAdjacentStep,
+  getMoveDistance,
   getScrollY,
   onDragMove,
+  onRowHeightChange,
   onDragStateChange,
   onOpen,
   onReorder,
@@ -92,15 +99,18 @@ function DraggableAccountRow({
       onPanResponderMove: (_, gestureState) => {
         const currentScrollY = onDragMove(gestureState.moveY);
         let effectiveDy = gestureState.dy - startGestureDy.current + currentScrollY - startScrollY.current;
+        const direction = effectiveDy > 0 ? 1 : -1;
+        const reorderThreshold = getAdjacentStep(startIndex.current, direction) * reorderThresholdRatio;
         const indexDelta = effectiveDy > reorderThreshold ? 1 : effectiveDy < -reorderThreshold ? -1 : 0;
 
         if (indexDelta !== 0) {
           const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + indexDelta));
+          const layoutDistance = getMoveDistance(startIndex.current, targetIndex);
           const reorderedIndex = onReorder(latest.current.accountId, targetIndex);
           const movedDelta = reorderedIndex - startIndex.current;
 
           if (movedDelta !== 0) {
-            const nextEffectiveDy = effectiveDy - movedDelta * dragStep;
+            const nextEffectiveDy = effectiveDy - layoutDistance;
             startGestureDy.current = gestureState.dy - nextEffectiveDy;
             startIndex.current = reorderedIndex;
             startScrollY.current = currentScrollY;
@@ -114,7 +124,11 @@ function DraggableAccountRow({
         setIsDragging(false);
         onDragStateChange(false);
         const effectiveDy = gestureState.dy - startGestureDy.current + getScrollY() - startScrollY.current;
-        const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + Math.round(effectiveDy / dragStep)));
+        const direction = effectiveDy > 0 ? 1 : -1;
+        const targetIndex =
+          Math.abs(effectiveDy) > getAdjacentStep(startIndex.current, direction) / 2
+            ? Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + direction))
+            : startIndex.current;
 
         if (targetIndex !== startIndex.current) {
           onReorder(latest.current.accountId, targetIndex);
@@ -134,15 +148,20 @@ function DraggableAccountRow({
 
   return (
     <Animated.View
+      onLayout={(event) => onRowHeightChange(account.id, event.nativeEvent.layout.height)}
       style={[
         styles.accountRow,
         {
-          opacity: isDragging ? 0.9 : 1,
+          elevation: isDragging ? 8 : 0,
+          opacity: isDragging ? 0.96 : 1,
           transform: [{ translateY: dragY }],
           zIndex: isDragging ? 10 : 0,
         },
       ]}
     >
+      <Pressable disabled={isReordering} style={styles.accountCardPressable} onPress={() => onOpen(account.id)}>
+        <AccountCard account={account} convertedBalance={convertedBalance} />
+      </Pressable>
       {isReordering ? (
         <View
           accessibilityLabel={`Drag ${account.name}`}
@@ -152,9 +171,6 @@ function DraggableAccountRow({
           <Ionicons name="reorder-three-outline" size={24} color={colors.primary} />
         </View>
       ) : null}
-      <Pressable disabled={isReordering} style={styles.accountCardPressable} onPress={() => onOpen(account.id)}>
-        <AccountCard account={account} convertedBalance={convertedBalance} />
-      </Pressable>
     </Animated.View>
   );
 }
@@ -168,6 +184,7 @@ export function AccountsScreen() {
   const viewportHeight = useRef(0);
   const scrollY = useRef(0);
   const orderedAccountsRef = useRef(state.accounts);
+  const rowHeights = useRef<Record<string, number>>({});
   const [isReordering, setIsReordering] = useState(false);
   const [isDraggingAccount, setIsDraggingAccount] = useState(false);
   const [orderedAccounts, setOrderedAccounts] = useState(state.accounts);
@@ -221,6 +238,49 @@ export function AccountsScreen() {
     setOrderedAccounts(nextAccounts);
     reorderAccounts(nextAccounts.map((item) => item.id));
     return nextIndex;
+  }
+
+  function handleRowHeightChange(accountId: string, height: number) {
+    rowHeights.current[accountId] = height;
+  }
+
+  function getStepForIndex(index: number) {
+    const account = orderedAccountsRef.current[index];
+
+    if (!account) {
+      return defaultRowHeight + listGap;
+    }
+
+    return (rowHeights.current[account.id] ?? defaultRowHeight) + listGap;
+  }
+
+  function getAdjacentStep(fromIndex: number, direction: 1 | -1) {
+    const adjacentIndex = Math.max(0, Math.min(orderedAccountsRef.current.length - 1, fromIndex + direction));
+    return getStepForIndex(adjacentIndex);
+  }
+
+  function getMoveDistance(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) {
+      return 0;
+    }
+
+    if (toIndex > fromIndex) {
+      let distance = 0;
+
+      for (let index = fromIndex + 1; index <= toIndex; index += 1) {
+        distance += getStepForIndex(index);
+      }
+
+      return distance;
+    }
+
+    let distance = 0;
+
+    for (let index = toIndex; index < fromIndex; index += 1) {
+      distance += getStepForIndex(index);
+    }
+
+    return -distance;
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -326,10 +386,13 @@ export function AccountsScreen() {
             account={account}
             accountCount={orderedAccounts.length}
             convertedBalance={getConvertedBalance(account)}
+            getAdjacentStep={getAdjacentStep}
+            getMoveDistance={getMoveDistance}
             getScrollY={() => scrollY.current}
             index={index}
             isReordering={isReordering}
             onDragMove={handleDragMove}
+            onRowHeightChange={handleRowHeightChange}
             onDragStateChange={setIsDraggingAccount}
             onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
             onReorder={reorderAccount}
