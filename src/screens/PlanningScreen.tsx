@@ -114,15 +114,16 @@ export function SavingsGoalsScreen() {
       <View style={styles.itemList}>
           {sortedGoals.map((goal) => {
             const percent = goal.targetAmount <= 0 ? 0 : goal.currentAmount / goal.targetAmount;
+            const isCompleted = percent >= 1;
             const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
             return (
-              <View key={goal.id} style={[styles.goalItem, { borderColor: colors.border }]}>
+              <View key={goal.id} style={[styles.goalItem, { borderColor: isCompleted ? colors.border : colors.warning }]}>
                 <View style={styles.itemTop}>
                   <View style={[styles.goalIcon, { backgroundColor: `${goal.color}20` }]}>
                     <Ionicons name="flag" size={18} color={goal.color} />
                   </View>
                   <View style={styles.flex}>
-                    <AppText style={styles.itemTitle}>{goal.name}</AppText>
+                    <AppText style={[styles.itemTitle, isCompleted ? styles.paid : undefined]}>{goal.name}</AppText>
                     <AppText variant="caption">{Math.round(Math.min(percent, 1) * 100)}% complete</AppText>
                   </View>
                   <Pressable style={styles.iconTap} onPress={() => deleteSavingsGoal(goal.id)}>
