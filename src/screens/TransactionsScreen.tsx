@@ -1,6 +1,5 @@
 import React from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 
@@ -39,13 +38,6 @@ export function TransactionsScreen() {
           <AppText variant="caption">Ledger</AppText>
           <AppText variant="title">Transactions</AppText>
         </View>
-        <Pressable
-          accessibilityLabel="Add transaction"
-          style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
-          onPress={() => navigation.navigate('AddTransaction')}
-        >
-          <Ionicons name="add" size={26} color="#FFFFFF" />
-        </Pressable>
       </View>
 
       <PrimaryButton label="Add transaction" icon="add-circle-outline" onPress={() => navigation.navigate('AddTransaction')} />
@@ -102,13 +94,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  iconButton: {
-    alignItems: 'center',
-    borderRadius: 18,
-    height: 52,
-    justifyContent: 'center',
-    width: 52,
   },
   card: {
     gap: 16,
