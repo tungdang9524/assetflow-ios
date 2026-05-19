@@ -489,53 +489,155 @@ export function CategoryDetailSettingsScreen() {
 export function SecuritySettingsScreen() {
   const { state, updateSettings } = useFinance();
   const { colors } = useAppTheme();
-  const [pin, setPin] = useState('');
+  const [pinModalMode, setPinModalMode] = useState<'enable' | 'change' | 'disable' | null>(null);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
 
-  function savePin() {
-    if (pin.trim().length < 4) {
-      Alert.alert('PIN too short', 'Use at least 4 digits.');
-      return;
-    }
-
-    updateSettings({ pinEnabled: true, pinCode: pin.trim() });
-    setPin('');
+  function resetPinForm() {
+    setCurrentPin('');
+    setNewPin('');
+    setConfirmPin('');
+    setPinModalMode(null);
   }
 
-  function disablePin() {
-    if (!state.settings.pinEnabled) {
+  function openPinModal(mode: 'enable' | 'change' | 'disable') {
+    setCurrentPin('');
+    setNewPin('');
+    setConfirmPin('');
+    setPinModalMode(mode);
+  }
+
+  function validateNewPin() {
+    if (newPin.trim().length < 4) {
+      Alert.alert('Mã PIN quá ngắn', 'Dùng ít nhất 4 chữ số.');
+      return false;
+    }
+
+    if (newPin.trim() !== confirmPin.trim()) {
+      Alert.alert('Mã PIN không khớp', 'Nhập lại cùng một mã PIN.');
+      return false;
+    }
+
+    return true;
+  }
+
+  function confirmPinModal() {
+    if (pinModalMode === 'enable') {
+      if (!validateNewPin()) {
+        return;
+      }
+
+      updateSettings({ pinEnabled: true, pinCode: newPin.trim() });
+      resetPinForm();
       return;
     }
 
-    if (pin.trim() !== state.settings.pinCode) {
-      Alert.alert('Wrong PIN', 'Re-enter your current PIN to disable PIN lock.');
+    if (currentPin.trim() !== state.settings.pinCode) {
+      Alert.alert('Sai mã PIN', 'Nhập lại mã PIN hiện tại để tiếp tục.');
       return;
     }
 
-    updateSettings({ pinEnabled: false, pinCode: undefined });
-    setPin('');
+    if (pinModalMode === 'disable') {
+      updateSettings({ pinEnabled: false, pinCode: undefined });
+      resetPinForm();
+      return;
+    }
+
+    if (pinModalMode === 'change') {
+      if (!validateNewPin()) {
+        return;
+      }
+
+      updateSettings({ pinEnabled: true, pinCode: newPin.trim() });
+      resetPinForm();
+    }
+  }
+
+  const modalTitle = pinModalMode === 'enable' ? 'Thiết lập mã PIN' : pinModalMode === 'change' ? 'Đổi mã PIN' : 'Tắt mã PIN';
+  const modalAction = pinModalMode === 'disable' ? 'Tắt mã PIN' : pinModalMode === 'change' ? 'Đổi mã PIN' : 'Bật mã PIN';
+
+  function handlePinSwitch(value: boolean) {
+    if (value) {
+      openPinModal('enable');
+      return;
+    }
+
+    openPinModal('disable');
   }
 
   return (
     <Screen>
       <Card style={styles.card}>
-        <AppText variant="heading">PIN lock</AppText>
-        <TextInput
-          keyboardType="number-pad"
-          maxLength={6}
-          secureTextEntry
-          placeholder={state.settings.pinEnabled ? 'Re-enter current PIN' : '4-6 digit PIN'}
-          placeholderTextColor={colors.muted}
-          value={pin}
-          onChangeText={setPin}
-          style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-        />
-        <View style={styles.segment}>
-          <PrimaryButton label={state.settings.pinEnabled ? 'Change PIN' : 'Enable PIN'} icon="lock-closed-outline" onPress={savePin} />
-          <Pressable disabled={!state.settings.pinEnabled} style={[styles.clearButton, { borderColor: colors.border, opacity: state.settings.pinEnabled ? 1 : 0.45 }]} onPress={disablePin}>
-            <AppText style={styles.segmentLabel}>Disable</AppText>
-          </Pressable>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <AppText variant="body" style={styles.value}>
+              Yêu cầu mã PIN khi khởi động
+            </AppText>
+            <AppText variant="caption">{state.settings.pinEnabled ? 'Đang bật.' : 'Đang tắt.'}</AppText>
+          </View>
+          <Switch
+            value={state.settings.pinEnabled}
+            onValueChange={handlePinSwitch}
+            trackColor={{ false: colors.border, true: colors.primarySoft }}
+            thumbColor={state.settings.pinEnabled ? colors.primary : colors.muted}
+          />
         </View>
+        {state.settings.pinEnabled ? (
+          <Pressable style={[styles.clearButton, { borderColor: colors.border }]} onPress={() => openPinModal('change')}>
+            <AppText style={styles.segmentLabel}>Đổi mã PIN</AppText>
+          </Pressable>
+        ) : null}
       </Card>
+      <Modal animationType="fade" transparent visible={pinModalMode !== null} onRequestClose={resetPinForm}>
+        <View style={styles.modalScrim}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.rowHeader}>
+              <AppText variant="heading">{modalTitle}</AppText>
+              <Pressable style={[styles.tag, { borderColor: colors.border }]} onPress={resetPinForm}>
+                <AppText style={styles.segmentLabel}>Hủy</AppText>
+              </Pressable>
+            </View>
+            {pinModalMode === 'change' || pinModalMode === 'disable' ? (
+              <TextInput
+                keyboardType="number-pad"
+                maxLength={6}
+                secureTextEntry
+                placeholder="Mã PIN hiện tại"
+                placeholderTextColor={colors.muted}
+                value={currentPin}
+                onChangeText={setCurrentPin}
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+              />
+            ) : null}
+            {pinModalMode === 'enable' || pinModalMode === 'change' ? (
+              <>
+                <TextInput
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  secureTextEntry
+                  placeholder="Mã PIN mới"
+                  placeholderTextColor={colors.muted}
+                  value={newPin}
+                  onChangeText={setNewPin}
+                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                />
+                <TextInput
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  secureTextEntry
+                  placeholder="Nhập lại mã PIN mới"
+                  placeholderTextColor={colors.muted}
+                  value={confirmPin}
+                  onChangeText={setConfirmPin}
+                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                />
+              </>
+            ) : null}
+            <PrimaryButton label={modalAction} icon="lock-closed-outline" onPress={confirmPinModal} />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
