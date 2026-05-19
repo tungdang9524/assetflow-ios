@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 
@@ -168,7 +169,7 @@ export function TransactionsScreen() {
                 <AppText variant="caption">Type</AppText>
                 <AppText style={styles.typeText}>{selectedTypeLabel}</AppText>
               </View>
-              <AppText color={colors.primary} style={styles.typeToggle}>{isTypeDropdownOpen ? 'Up' : 'Down'}</AppText>
+              <Ionicons name={isTypeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
             </Pressable>
             {isTypeDropdownOpen ? (
               <View style={[styles.typeDropdown, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -200,7 +201,7 @@ export function TransactionsScreen() {
               <AppText variant="caption">Date range</AppText>
               <AppText color={fromDate ? colors.text : colors.muted} numberOfLines={1} style={styles.rangeText}>{rangeLabel}</AppText>
             </View>
-            <AppText color={colors.primary} style={styles.rangeIcon}>Date</AppText>
+            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
           </Pressable>
         </View>
         {fromDate || toDate ? (
@@ -346,10 +347,6 @@ const styles = StyleSheet.create({
   typeText: {
     fontWeight: '800',
   },
-  typeToggle: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
   typeDropdown: {
     borderRadius: 14,
     borderWidth: 1,
@@ -384,9 +381,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   rangeText: {
-    fontWeight: '800',
-  },
-  rangeIcon: {
     fontWeight: '800',
   },
   clearButton: {
