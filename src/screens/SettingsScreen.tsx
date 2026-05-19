@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
@@ -537,6 +538,12 @@ export function BackupSettingsScreen() {
     setIsExportOpen(true);
   }
 
+  function copyExportBackup() {
+    Clipboard.setStringAsync(exportText)
+      .then(() => Alert.alert('Backup copied', 'The JSON backup was copied to your clipboard.'))
+      .catch(() => Alert.alert('Copy failed', 'Could not copy the backup to the clipboard.'));
+  }
+
   function importBackup() {
     try {
       importState(JSON.parse(importText));
@@ -589,14 +596,12 @@ export function BackupSettingsScreen() {
                 <AppText style={styles.segmentLabel}>Close</AppText>
               </Pressable>
             </View>
-            <TextInput
-              multiline
-              editable={false}
-              selectTextOnFocus
-              value={exportText}
-              style={[styles.backupPreview, styles.backupPreviewText, { borderColor: colors.border, color: colors.text }]}
-            />
-            <AppText variant="caption">Để copy, giữ vào ô bên trên rồi nhấn Copy.</AppText>
+            <View style={[styles.backupPreview, { borderColor: colors.border }]}>
+              <AppText variant="caption" numberOfLines={8} ellipsizeMode="tail" style={styles.backupPreviewText}>
+                {exportText}
+              </AppText>
+            </View>
+            <PrimaryButton label="Copy backup" icon="copy-outline" onPress={copyExportBackup} />
           </View>
         </View>
       </Modal>
