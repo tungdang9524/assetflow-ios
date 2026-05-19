@@ -30,9 +30,8 @@ import { convertCurrency, formatCurrency } from '../utils/currency';
 
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AccountsList'>;
 
-const defaultDragStep = 100;
-const listGap = 12;
-const reorderThresholdRatio = 0.85;
+const dragStep = 88;
+const reorderThreshold = 76;
 const autoScrollEdgeSize = 120;
 const autoScrollStep = 18;
 
@@ -44,11 +43,9 @@ interface DraggableAccountRowProps {
   convertedBalance?: string;
   getScrollY: () => number;
   onDragMove: (moveY: number) => number;
-  onRowHeightChange: (height: number) => void;
   onDragStateChange: (isDragging: boolean) => void;
   onOpen: (accountId: string) => void;
   onReorder: (accountId: string, targetIndex: number) => number;
-  rowStep: number;
 }
 
 function DraggableAccountRow({
@@ -59,23 +56,21 @@ function DraggableAccountRow({
   convertedBalance,
   getScrollY,
   onDragMove,
-  onRowHeightChange,
   onDragStateChange,
   onOpen,
   onReorder,
-  rowStep,
 }: DraggableAccountRowProps) {
   const { colors } = useAppTheme();
   const dragY = useRef(new Animated.Value(0)).current;
-  const latest = useRef({ accountCount, accountId: account.id, index, isReordering, rowStep });
+  const latest = useRef({ accountCount, accountId: account.id, index, isReordering });
   const startGestureDy = useRef(0);
   const startIndex = useRef(index);
   const startScrollY = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
-    latest.current = { accountCount, accountId: account.id, index, isReordering, rowStep };
-  }, [account.id, accountCount, index, isReordering, rowStep]);
+    latest.current = { accountCount, accountId: account.id, index, isReordering };
+  }, [account.id, accountCount, index, isReordering]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -97,8 +92,6 @@ function DraggableAccountRow({
       onPanResponderMove: (_, gestureState) => {
         const currentScrollY = onDragMove(gestureState.moveY);
         let effectiveDy = gestureState.dy - startGestureDy.current + currentScrollY - startScrollY.current;
-        const dragStep = latest.current.rowStep;
-        const reorderThreshold = dragStep * reorderThresholdRatio;
         const indexDelta = effectiveDy > reorderThreshold ? 1 : effectiveDy < -reorderThreshold ? -1 : 0;
 
         if (indexDelta !== 0) {
@@ -121,7 +114,6 @@ function DraggableAccountRow({
         setIsDragging(false);
         onDragStateChange(false);
         const effectiveDy = gestureState.dy - startGestureDy.current + getScrollY() - startScrollY.current;
-        const dragStep = latest.current.rowStep;
         const targetIndex = Math.max(0, Math.min(latest.current.accountCount - 1, startIndex.current + Math.round(effectiveDy / dragStep)));
 
         if (targetIndex !== startIndex.current) {
@@ -142,7 +134,6 @@ function DraggableAccountRow({
 
   return (
     <Animated.View
-      onLayout={(event) => onRowHeightChange(event.nativeEvent.layout.height)}
       style={[
         styles.accountRow,
         {
@@ -180,7 +171,6 @@ export function AccountsScreen() {
   const [isReordering, setIsReordering] = useState(false);
   const [isDraggingAccount, setIsDraggingAccount] = useState(false);
   const [orderedAccounts, setOrderedAccounts] = useState(state.accounts);
-  const [rowStep, setRowStep] = useState(defaultDragStep);
   const netWorth = getNetWorthVnd(state.accounts, state.settings.usdToVndRate);
 
   useEffect(() => {
@@ -231,12 +221,6 @@ export function AccountsScreen() {
     setOrderedAccounts(nextAccounts);
     reorderAccounts(nextAccounts.map((item) => item.id));
     return nextIndex;
-  }
-
-  function handleRowHeightChange(height: number) {
-    const nextStep = Math.round(height + listGap);
-
-    setRowStep((currentStep) => (Math.abs(currentStep - nextStep) > 1 ? nextStep : currentStep));
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -346,11 +330,9 @@ export function AccountsScreen() {
             index={index}
             isReordering={isReordering}
             onDragMove={handleDragMove}
-            onRowHeightChange={handleRowHeightChange}
             onDragStateChange={setIsDraggingAccount}
             onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
             onReorder={reorderAccount}
-            rowStep={rowStep}
           />
         ))}
       </View>
