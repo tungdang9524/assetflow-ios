@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
@@ -109,7 +108,7 @@ export function SettingsScreen() {
         <SettingsRow
           icon="lock-closed-outline"
           title="Security"
-          subtitle={`${state.settings.pinEnabled ? 'PIN on' : 'PIN off'} - ${state.settings.faceIdEnabled ? 'Face ID on' : 'Face ID off'}`}
+          subtitle={state.settings.pinEnabled ? 'PIN on' : 'PIN off'}
           onPress={() => navigation.navigate('SecuritySettings')}
         />
         <SettingsRow icon="archive-outline" title="Backup" subtitle="Export or import JSON data" onPress={() => navigation.navigate('BackupSettings')} />
@@ -567,63 +566,9 @@ export function SecuritySettingsScreen() {
     openPinModal('disable');
   }
 
-  async function handleFaceIdSwitch(value: boolean) {
-    if (!value) {
-      updateSettings({ faceIdEnabled: false });
-      return;
-    }
-
-    try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      const supportsFaceId = supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
-
-      if (!hasHardware || !supportsFaceId) {
-        Alert.alert('Face ID unavailable', 'This device does not support Face ID.');
-        return;
-      }
-
-      if (!isEnrolled) {
-        Alert.alert('Face ID not set up', 'Set up Face ID in iOS Settings before enabling it in AssetFlow.');
-        return;
-      }
-
-      const result = await LocalAuthentication.authenticateAsync({
-        biometricsSecurityLevel: 'strong',
-        cancelLabel: 'Cancel',
-        disableDeviceFallback: true,
-        fallbackLabel: '',
-        promptMessage: 'Enable Face ID for AssetFlow',
-      });
-
-      if (!result.success) {
-        return;
-      }
-
-      updateSettings({ faceIdEnabled: true });
-    } catch {
-      Alert.alert('Face ID unavailable', 'Face ID could not be enabled right now.');
-    }
-  }
-
   return (
     <Screen>
       <Card style={styles.card}>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleCopy}>
-            <AppText variant="body" style={styles.value}>
-              Require Face ID on app start
-            </AppText>
-            <AppText variant="caption">{state.settings.faceIdEnabled ? 'Face ID unlock is on.' : 'Face ID unlock is off.'}</AppText>
-          </View>
-          <Switch
-            value={state.settings.faceIdEnabled}
-            onValueChange={handleFaceIdSwitch}
-            trackColor={{ false: colors.border, true: colors.primarySoft }}
-            thumbColor={state.settings.faceIdEnabled ? colors.primary : colors.muted}
-          />
-        </View>
         <View style={styles.toggleRow}>
           <View style={styles.toggleCopy}>
             <AppText variant="body" style={styles.value}>

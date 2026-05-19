@@ -45,11 +45,7 @@ function AppShell() {
   return (
     <NavigationContainer theme={navigationTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      {(state.settings.faceIdEnabled || (state.settings.pinEnabled && state.settings.pinCode)) && !isUnlocked ? (
-        <PinLock onUnlock={() => setIsUnlocked(true)} />
-      ) : (
-        <AppNavigator />
-      )}
+      {state.settings.pinEnabled && state.settings.pinCode && !isUnlocked ? <PinLock onUnlock={() => setIsUnlocked(true)} /> : <AppNavigator />}
     </NavigationContainer>
   );
 }
