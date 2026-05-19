@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
@@ -16,6 +17,7 @@ type Navigation = NativeStackNavigationProp<TransactionsStackParamList, 'AddTran
 type Route = RouteProp<TransactionsStackParamList, 'AddTransaction'>;
 
 const transactionTypes: TransactionType[] = ['expense', 'income', 'transfer'];
+type DropdownKey = 'category' | 'fromAccount' | 'toAccount';
 
 export function AddTransactionScreen() {
   const navigation = useNavigation<Navigation>();
@@ -32,6 +34,7 @@ export function AddTransactionScreen() {
   );
   const [amount, setAmount] = useState(editingTransaction ? String(editingTransaction.amount) : '');
   const [note, setNote] = useState(editingTransaction?.note ?? '');
+  const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
 
   const account = moneyAccounts.find((item) => item.id === accountId) ?? moneyAccounts[0];
   const availableCategories = useMemo(() => state.categories.filter((category) => category.type === type), [state.categories, type]);
@@ -39,11 +42,16 @@ export function AddTransactionScreen() {
 
   function handleTypeChange(nextType: TransactionType) {
     setType(nextType);
+    setOpenDropdown(null);
 
     if (nextType !== 'transfer') {
       const nextCategory = state.categories.find((category) => category.type === nextType);
       setCategoryId(nextCategory?.id ?? '');
     }
+  }
+
+  function toggleDropdown(dropdown: DropdownKey) {
+    setOpenDropdown((current) => (current === dropdown ? null : dropdown));
   }
 
   function handleSubmit() {
@@ -150,48 +158,105 @@ export function AddTransactionScreen() {
 
         <View style={styles.inputGroup}>
           <AppText variant="caption">From account</AppText>
-          <View style={styles.optionGrid}>
-            {moneyAccounts.map((item) => (
-              <Pressable
-                key={item.id}
-                style={[styles.option, { borderColor: item.id === accountId ? colors.primary : colors.border, backgroundColor: colors.surface }]}
-                onPress={() => setAccountId(item.id)}
-              >
-                <AppText style={styles.optionText}>{item.name}</AppText>
-              </Pressable>
-            ))}
-          </View>
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => toggleDropdown('fromAccount')}
+          >
+            <AppText color={account ? colors.text : colors.muted} style={styles.dropdownText}>
+              {account?.name ?? 'Choose account'}
+            </AppText>
+            <Ionicons name={openDropdown === 'fromAccount' ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+          </Pressable>
+          {openDropdown === 'fromAccount' ? (
+            <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {moneyAccounts.map((item, index) => (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.dropdownItem, { borderBottomColor: colors.border, borderBottomWidth: index === moneyAccounts.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
+                    onPress={() => {
+                      setAccountId(item.id);
+                      setOpenDropdown(null);
+                    }}
+                  >
+                    <AppText style={styles.dropdownItemText}>{item.name}</AppText>
+                    {item.id === accountId ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
 
         {type === 'transfer' ? (
           <View style={styles.inputGroup}>
             <AppText variant="caption">To account</AppText>
-            <View style={styles.optionGrid}>
-              {moneyAccounts.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[styles.option, { borderColor: item.id === toAccountId ? colors.primary : colors.border, backgroundColor: colors.surface }]}
-                  onPress={() => setToAccountId(item.id)}
-                >
-                  <AppText style={styles.optionText}>{item.name}</AppText>
-                </Pressable>
-              ))}
-            </View>
+            <Pressable
+              style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={() => toggleDropdown('toAccount')}
+            >
+              <AppText color={moneyAccounts.find((item) => item.id === toAccountId) ? colors.text : colors.muted} style={styles.dropdownText}>
+                {moneyAccounts.find((item) => item.id === toAccountId)?.name ?? 'Choose account'}
+              </AppText>
+              <Ionicons name={openDropdown === 'toAccount' ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+            </Pressable>
+            {openDropdown === 'toAccount' ? (
+              <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                  {moneyAccounts.map((item, index) => (
+                    <Pressable
+                      key={item.id}
+                      style={[styles.dropdownItem, { borderBottomColor: colors.border, borderBottomWidth: index === moneyAccounts.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
+                      onPress={() => {
+                        setToAccountId(item.id);
+                        setOpenDropdown(null);
+                      }}
+                    >
+                      <AppText style={styles.dropdownItemText}>{item.name}</AppText>
+                      {item.id === toAccountId ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
           </View>
         ) : (
           <View style={styles.inputGroup}>
             <AppText variant="caption">Category</AppText>
-            <View style={styles.optionGrid}>
-              {availableCategories.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[styles.option, { borderColor: item.id === categoryId ? colors.primary : colors.border, backgroundColor: colors.surface }]}
-                  onPress={() => setCategoryId(item.id)}
-                >
-                  <AppText style={styles.optionText}>{item.name}</AppText>
-                </Pressable>
-              ))}
-            </View>
+            <Pressable
+              style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={() => toggleDropdown('category')}
+            >
+              <View style={styles.dropdownValue}>
+                {availableCategories.find((item) => item.id === categoryId) ? (
+                  <View style={[styles.categoryDot, { backgroundColor: availableCategories.find((item) => item.id === categoryId)?.color }]} />
+                ) : null}
+                <AppText color={availableCategories.find((item) => item.id === categoryId) ? colors.text : colors.muted} style={styles.dropdownText}>
+                  {availableCategories.find((item) => item.id === categoryId)?.name ?? 'Choose category'}
+                </AppText>
+              </View>
+              <Ionicons name={openDropdown === 'category' ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+            </Pressable>
+            {openDropdown === 'category' ? (
+              <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                  {availableCategories.map((item, index) => (
+                    <Pressable
+                      key={item.id}
+                      style={[styles.dropdownItem, { borderBottomColor: colors.border, borderBottomWidth: index === availableCategories.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
+                      onPress={() => {
+                        setCategoryId(item.id);
+                        setOpenDropdown(null);
+                      }}
+                    >
+                      <View style={[styles.categoryDot, { backgroundColor: item.color }]} />
+                      <AppText style={styles.dropdownItemText}>{item.name}</AppText>
+                      {item.id === categoryId ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
           </View>
         )}
 
@@ -250,20 +315,46 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     paddingVertical: 8,
   },
-  optionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  option: {
+  dropdownButton: {
+    alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
-    minHeight: 42,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 50,
     paddingHorizontal: 12,
-    justifyContent: 'center',
   },
-  optionText: {
-    fontWeight: '700',
+  dropdownValue: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dropdownText: {
+    flex: 1,
+    fontWeight: '800',
+  },
+  dropdownList: {
+    borderRadius: 14,
+    borderWidth: 1,
+    maxHeight: 230,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 46,
+    paddingHorizontal: 12,
+  },
+  dropdownItemText: {
+    flex: 1,
+    fontWeight: '800',
+  },
+  categoryDot: {
+    borderRadius: 999,
+    height: 10,
+    width: 10,
   },
   noteInput: {
     borderWidth: 1,
