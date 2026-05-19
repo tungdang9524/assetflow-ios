@@ -46,6 +46,7 @@ interface DraggableAccountRowProps {
   getMoveDistance: (fromIndex: number, toIndex: number) => number;
   getScrollY: () => number;
   onDragMove: (moveY: number) => number;
+  onOrderCommit: () => void;
   onRowHeightChange: (accountId: string, height: number) => void;
   onDragStateChange: (isDragging: boolean) => void;
   onOpen: (accountId: string) => void;
@@ -62,6 +63,7 @@ function DraggableAccountRow({
   getMoveDistance,
   getScrollY,
   onDragMove,
+  onOrderCommit,
   onRowHeightChange,
   onDragStateChange,
   onOpen,
@@ -133,14 +135,17 @@ function DraggableAccountRow({
         if (targetIndex !== startIndex.current) {
           onReorder(latest.current.accountId, targetIndex);
           dragY.setValue(0);
+          onOrderCommit();
           return;
         }
 
+        onOrderCommit();
         Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
       },
       onPanResponderTerminate: () => {
         setIsDragging(false);
         onDragStateChange(false);
+        onOrderCommit();
         Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
       },
     }),
@@ -236,8 +241,11 @@ export function AccountsScreen() {
     nextAccounts.splice(nextIndex, 0, account);
     orderedAccountsRef.current = nextAccounts;
     setOrderedAccounts(nextAccounts);
-    reorderAccounts(nextAccounts.map((item) => item.id));
     return nextIndex;
+  }
+
+  function commitAccountOrder() {
+    reorderAccounts(orderedAccountsRef.current.map((item) => item.id));
   }
 
   function handleRowHeightChange(accountId: string, height: number) {
@@ -392,6 +400,7 @@ export function AccountsScreen() {
             index={index}
             isReordering={isReordering}
             onDragMove={handleDragMove}
+            onOrderCommit={commitAccountOrder}
             onRowHeightChange={handleRowHeightChange}
             onDragStateChange={setIsDraggingAccount}
             onOpen={(accountId) => navigation.navigate('AddAccount', { accountId })}
