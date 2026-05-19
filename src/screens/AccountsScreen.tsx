@@ -143,9 +143,6 @@ function DraggableAccountRow({
         },
       ]}
     >
-      <Pressable disabled={isReordering} style={styles.accountCardPressable} onPress={() => onOpen(account.id)}>
-        <AccountCard account={account} convertedBalance={convertedBalance} />
-      </Pressable>
       {isReordering ? (
         <View
           accessibilityLabel={`Drag ${account.name}`}
@@ -155,6 +152,9 @@ function DraggableAccountRow({
           <Ionicons name="reorder-three-outline" size={24} color={colors.primary} />
         </View>
       ) : null}
+      <Pressable disabled={isReordering} style={styles.accountCardPressable} onPress={() => onOpen(account.id)}>
+        <AccountCard account={account} convertedBalance={convertedBalance} />
+      </Pressable>
     </Animated.View>
   );
 }
