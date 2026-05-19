@@ -228,6 +228,7 @@ export function DebtsLoansScreen() {
   const navigation = useNavigation<DebtsLoansNavigation>();
   const { state, toggleDebtPaid, deleteDebt } = useFinance();
   const { colors } = useAppTheme();
+  const [selectedDebtType, setSelectedDebtType] = useState<DebtType>('lent');
   const sortedDebts = [...state.debts].sort((firstDebt, secondDebt) => {
     if (firstDebt.isPaid === secondDebt.isPaid) {
       return 0;
@@ -235,6 +236,7 @@ export function DebtsLoansScreen() {
 
     return firstDebt.isPaid ? 1 : -1;
   });
+  const visibleDebts = sortedDebts.filter((debt) => debt.type === selectedDebtType);
 
   function confirmDeleteDebt(debtId: string, debtName: string) {
     Alert.alert('Delete debt or loan', `Delete ${debtName}?`, [
@@ -260,8 +262,24 @@ export function DebtsLoansScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.segment}>
+        {(['lent', 'borrowed'] as DebtType[]).map((item) => {
+          const selected = selectedDebtType === item;
+
+          return (
+            <Pressable
+              key={item}
+              style={[styles.segmentItem, { borderColor: colors.border, backgroundColor: selected ? colors.primary : colors.surface }]}
+              onPress={() => setSelectedDebtType(item)}
+            >
+              <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentText}>{item === 'lent' ? 'Lent' : 'Borrowed'}</AppText>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <View style={styles.itemList}>
-          {sortedDebts.map((debt) => (
+          {visibleDebts.map((debt) => (
             <View key={debt.id} style={[styles.debtCard, { borderColor: debt.isPaid ? colors.border : debt.type === 'lent' ? colors.primary : colors.warning }]}>
               <View style={styles.itemTop}>
                 <View style={[styles.goalIcon, { backgroundColor: debt.type === 'lent' ? colors.primarySoft : `${colors.warning}20` }]}>
