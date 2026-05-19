@@ -31,6 +31,9 @@
         "projectId": "3bf40ea9-0ada-4093-ac79-7bdebe0158be"
       }
     },
-    "owner": "kazuotm"
+    "owner": "kazuotm",
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

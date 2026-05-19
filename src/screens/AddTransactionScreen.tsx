@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
@@ -19,6 +20,25 @@ type Route = RouteProp<TransactionsStackParamList, 'AddTransaction'>;
 const transactionTypes: TransactionType[] = ['expense', 'income', 'transfer'];
 type DropdownKey = 'category' | 'fromAccount' | 'toAccount';
 
+function formatDateInput(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function mergeDateWithExistingTime(date: Date, existingDate?: string) {
+  const timeSource = existingDate ? new Date(existingDate) : new Date();
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    timeSource.getHours(),
+    timeSource.getMinutes(),
+    timeSource.getSeconds(),
+    timeSource.getMilliseconds(),
+  );
+}
+
 export function AddTransactionScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
@@ -34,6 +54,8 @@ export function AddTransactionScreen() {
   );
   const [amount, setAmount] = useState(editingTransaction ? String(editingTransaction.amount) : '');
   const [note, setNote] = useState(editingTransaction?.note ?? '');
+  const [transactionDate, setTransactionDate] = useState(() => new Date(editingTransaction?.date ?? new Date()));
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
 
   const account = moneyAccounts.find((item) => item.id === accountId) ?? moneyAccounts[0];
@@ -79,7 +101,7 @@ export function AddTransactionScreen() {
       accountId: account.id,
       toAccountId: type === 'transfer' ? toAccountId : undefined,
       categoryId: type === 'transfer' ? undefined : categoryId,
-      date: editingTransaction?.date ?? new Date().toISOString(),
+      date: mergeDateWithExistingTime(transactionDate, editingTransaction?.date).toISOString(),
       note: note.trim() || undefined,
     };
 
@@ -154,6 +176,20 @@ export function AddTransactionScreen() {
             onChangeText={setAmount}
             style={[styles.amountInput, { color: colors.text, borderColor: colors.border }]}
           />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <AppText variant="caption">Date</AppText>
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => {
+              setOpenDropdown(null);
+              setIsDatePickerOpen(true);
+            }}
+          >
+            <AppText style={styles.dropdownText}>{formatDateInput(transactionDate)}</AppText>
+            <Ionicons name="calendar-outline" size={18} color={colors.muted} />
+          </Pressable>
         </View>
 
         <View style={styles.inputGroup}>
@@ -280,6 +316,29 @@ export function AddTransactionScreen() {
           </AppText>
         </Pressable>
       ) : null}
+      <Modal animationType="fade" transparent visible={isDatePickerOpen} onRequestClose={() => setIsDatePickerOpen(false)}>
+        <View style={styles.modalScrim}>
+          <View style={[styles.datePickerCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <AppText variant="heading">Select date</AppText>
+              <Pressable style={[styles.closeButton, { borderColor: colors.border }]} onPress={() => setIsDatePickerOpen(false)}>
+                <AppText style={styles.closeButtonText}>Done</AppText>
+              </Pressable>
+            </View>
+            <DateTimePicker
+              display="spinner"
+              mode="date"
+              value={transactionDate}
+              onChange={(_, selectedDate) => {
+                if (selectedDate) {
+                  setTransactionDate(selectedDate);
+                }
+              }}
+              textColor={colors.text}
+            />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -370,6 +429,35 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   deleteLabel: {
+    fontWeight: '800',
+  },
+  modalScrim: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  datePickerCard: {
+    borderRadius: 18,
+    gap: 14,
+    padding: 16,
+    width: '100%',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+    paddingHorizontal: 12,
+  },
+  closeButtonText: {
     fontWeight: '800',
   },
 });
