@@ -13,12 +13,13 @@ import { CurrencyCode, TransactionType } from '../models/finance';
 import { TransactionsStackParamList } from '../navigation/types';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
+import { convertCurrency } from '../utils/currency';
 
 type Navigation = NativeStackNavigationProp<TransactionsStackParamList, 'AddTransaction'>;
 type Route = RouteProp<TransactionsStackParamList, 'AddTransaction'>;
 
 const transactionTypes: TransactionType[] = ['expense', 'income', 'transfer'];
-type DropdownKey = 'category' | 'fromAccount' | 'toAccount';
+type DropdownKey = 'category' | 'fromAccount' | 'savingsGoal' | 'toAccount';
 
 function formatDateInput(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -42,7 +43,7 @@ function mergeDateWithExistingTime(date: Date, existingDate?: string) {
 export function AddTransactionScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
-  const { state, addTransaction, updateTransaction, deleteTransaction } = useFinance();
+  const { state, addTransaction, updateSavingsGoal, updateTransaction, deleteTransaction } = useFinance();
   const { colors } = useAppTheme();
   const moneyAccounts = state.accounts.filter((item) => item.type !== 'crypto');
   const editingTransaction = state.transactions.find((transaction) => transaction.id === route.params?.transactionId);
@@ -54,12 +55,14 @@ export function AddTransactionScreen() {
   );
   const [amount, setAmount] = useState(editingTransaction ? String(editingTransaction.amount) : '');
   const [note, setNote] = useState(editingTransaction?.note ?? '');
+  const [savingsGoalId, setSavingsGoalId] = useState('');
   const [transactionDate, setTransactionDate] = useState(() => new Date(editingTransaction?.date ?? new Date()));
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
 
   const account = moneyAccounts.find((item) => item.id === accountId) ?? moneyAccounts[0];
   const availableCategories = useMemo(() => state.categories.filter((category) => category.type === type), [state.categories, type]);
+  const selectedSavingsGoal = state.savingsGoals.find((goal) => goal.id === savingsGoalId);
   const currency: CurrencyCode = account?.currency ?? 'VND';
 
   function handleTypeChange(nextType: TransactionType) {
@@ -69,6 +72,10 @@ export function AddTransactionScreen() {
     if (nextType !== 'transfer') {
       const nextCategory = state.categories.find((category) => category.type === nextType);
       setCategoryId(nextCategory?.id ?? '');
+    }
+
+    if (nextType !== 'income') {
+      setSavingsGoalId('');
     }
   }
 
@@ -118,6 +125,13 @@ export function AddTransactionScreen() {
       if (!result.ok) {
         Alert.alert('Transaction blocked', result.error ?? 'This transaction would make the account balance invalid.');
         return;
+      }
+
+      if (type === 'income' && selectedSavingsGoal) {
+        const savingsAmount = convertCurrency(parsedAmount, currency, selectedSavingsGoal.currency, state.settings.usdToVndRate);
+        updateSavingsGoal(selectedSavingsGoal.id, {
+          currentAmount: selectedSavingsGoal.currentAmount + savingsAmount,
+        });
       }
     }
 
@@ -295,6 +309,51 @@ export function AddTransactionScreen() {
             ) : null}
           </View>
         )}
+
+        {!editingTransaction && type === 'income' ? (
+          <View style={styles.inputGroup}>
+            <AppText variant="caption">Add to savings (optional)</AppText>
+            <Pressable
+              style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={() => toggleDropdown('savingsGoal')}
+            >
+              <AppText color={selectedSavingsGoal ? colors.text : colors.muted} style={styles.dropdownText}>
+                {selectedSavingsGoal?.name ?? 'No savings goal'}
+              </AppText>
+              <Ionicons name={openDropdown === 'savingsGoal' ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+            </Pressable>
+            {openDropdown === 'savingsGoal' ? (
+              <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                  <Pressable
+                    style={[styles.dropdownItem, { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}
+                    onPress={() => {
+                      setSavingsGoalId('');
+                      setOpenDropdown(null);
+                    }}
+                  >
+                    <AppText style={styles.dropdownItemText}>No savings goal</AppText>
+                    {!savingsGoalId ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                  </Pressable>
+                  {state.savingsGoals.map((goal, index) => (
+                    <Pressable
+                      key={goal.id}
+                      style={[styles.dropdownItem, { borderBottomColor: colors.border, borderBottomWidth: index === state.savingsGoals.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
+                      onPress={() => {
+                        setSavingsGoalId(goal.id);
+                        setOpenDropdown(null);
+                      }}
+                    >
+                      <View style={[styles.categoryDot, { backgroundColor: goal.color }]} />
+                      <AppText style={styles.dropdownItemText}>{goal.name}</AppText>
+                      {goal.id === savingsGoalId ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.inputGroup}>
           <AppText variant="caption">Note</AppText>
