@@ -1,132 +1,141 @@
 # AssetFlow
 
-AssetFlow is an original iPhone-focused personal finance tracker built with Expo, React Native, and TypeScript.
+AssetFlow is an iPhone-focused personal finance tracker built with Expo, React Native, and TypeScript.
 
-The MVP is designed for Windows development and iPhone testing through Expo Go. It does not require Xcode, macOS, custom native modules, or an EAS dev client for normal development.
+The app is designed to run from Windows through Expo Go for day-to-day development. A fresh install starts with zero user data while keeping the default income and expense categories available. Sample data can still be restored from Settings.
 
 ## Features
 
-- Dashboard with net worth, monthly income, expenses, balance, recent transactions, and spending summary.
-- Multiple accounts including Cash, Bank, E-wallet, Savings, and USD Account.
-- Custom account creation for VND, USD, and crypto holdings.
-- Edit/delete accounts and transactions, with balance impact reversed when transactions change.
-- VND base currency with a manual USD/VND exchange rate.
-- Optional network refresh for USD/VND and supported crypto prices.
-- Income, expense, and transfer transactions that update balances.
-- Search and filter transactions.
-- Custom expense and income categories.
-- Monthly category budgets with spent, remaining, progress bars, and simple alerts.
-- Debts/loans, savings goals, and a monthly transaction calendar.
-- Reports using simple Expo-compatible cards, progress bars, allocation views, and planning snapshots.
-- Settings for base currency display, USD/VND rate, theme, PIN/biometric lock, JSON backup/import, and sample data reset.
-- AsyncStorage local persistence.
+- Dashboard with net worth, monthly income, monthly expenses, balance trend, and recent activity.
+- Account management for cash, bank, e-wallet, savings, foreign currency, credit cards, crypto, stocks, and ETF portfolios.
+- Drag-and-drop account ordering.
+- Crypto portfolios with multiple assets and quantities.
+- Stock and ETF portfolios with 50 popular symbols for each asset type.
+- Income, expense, and transfer transactions with editable dates.
+- Transaction history grouped by day, with type and date-range filters.
+- Dropdown pickers for accounts, categories, savings goals, and portfolio assets.
+- Optional income allocation into savings goals.
+- Budgets by category, with add/edit flows and used-category filtering.
+- Savings goals with progress tracking, completion styling, search, and delete confirmation.
+- Debts and loans split by lent/borrowed, with search and delete confirmation.
+- Calendar view with custom month and year picker.
+- Reports with account allocation, planning snapshot, expense donut chart, and spending trend.
+- Settings for rates, theme, categories, PIN lock, backup/import, sample data, reset-to-zero, and project info.
+- Local persistence through AsyncStorage.
 
-## Market Rates
+## Market Data
 
-AssetFlow stores a manual USD/VND rate by default and can refresh rates from the network when enabled in Settings.
+AssetFlow stores a manual USD/VND exchange rate by default and can refresh market data from the network when enabled.
 
 - USD/VND uses the public `open.er-api.com` latest USD endpoint.
 - Crypto prices use CoinGecko's public simple price endpoint.
-- Supported MVP crypto assets: 50 market-cap sorted assets seeded from CoinGecko.
-- Network rates are for personal tracking estimates, not trading execution.
-- FX data attribution: Rates by Exchange Rate API.
+- Stock and ETF prices currently use bundled fallback prices for personal tracking estimates.
+- Market data is for personal finance tracking only, not trading or execution.
 
-## Run On Windows With iPhone And Expo Go
+## Requirements
 
-Install dependencies:
+- Node.js 20 or newer.
+- npm.
+- Expo Go on an iPhone for the fastest development loop.
+- The Windows computer and iPhone should be on the same network, or Expo tunnel mode should be used.
+
+## Install
 
 ```bash
 npm install
 ```
 
+## Run
+
 Start the Expo development server:
 
 ```bash
-npx expo start
+npm run start
 ```
 
-Open Expo Go on your iPhone and scan the QR code. Keep the Windows machine and iPhone on the same network, or use Expo tunnel mode if LAN discovery is blocked:
+Open Expo Go on your iPhone and scan the QR code.
+
+If LAN discovery is blocked, start Expo with tunnel mode:
 
 ```bash
 npx expo start --tunnel
 ```
 
-Expo Go testing is free and works from Windows. This is the recommended MVP development loop.
-
-Face ID note: AssetFlow includes biometric unlock through `expo-local-authentication`, but Expo's iOS Face ID prompt is not supported inside Expo Go. Use the PIN fallback while testing in Expo Go. To test real Face ID, create an EAS development or preview build.
-
 ## Scripts
 
 ```bash
 npm run start       # Start Expo
+npm run ios         # Start Expo with iOS target
+npm run web         # Start Expo web target
 npm run typecheck   # TypeScript check
 npm run expo:check  # Verify Expo dependency compatibility
-npm run export:ios  # Bundle the iOS JavaScript output without Xcode
+npm run export:ios  # Export the iOS JavaScript bundle
 ```
 
-## iOS Build And Distribution Options
+## Data Behavior
 
-### 1. Expo Go Development On iPhone
+- Fresh installs start empty.
+- Default categories are always included in the initial empty state.
+- `Settings > Data > Restore sample data` loads starter accounts, transactions, budgets, goals, debts, and watchlist data.
+- `Settings > Data > Reset data to zero` clears user data and keeps default categories.
+- Backup export/import uses JSON in Settings.
 
-Expo Go runs the JavaScript app from the development server. It is free, works from Windows, and is enough for this MVP because the app uses only Expo Go-compatible dependencies.
+## Security
 
-### 2. EAS Build iOS Artifact
+PIN lock can be enabled from Settings.
 
-EAS Build creates a real iOS build in Expo's cloud. `.github/workflows/eas-ios-build.yml` now runs automatically after each push to `main` using the `internal` profile. It also supports manual runs where you can choose `preview`, `internal`, or `production`.
+- Enabling PIN lock requires entering and confirming a new PIN.
+- Changing the PIN requires the current PIN plus a new confirmed PIN.
+- Disabling PIN lock requires entering the current PIN.
 
-Required setup:
+## iOS Build Options
 
-- Create an Expo account.
-- Run `npx eas login`.
-- Run `npx eas init` in this repository to link the project.
-- Add `EXPO_TOKEN` as a GitHub repository secret.
-- Configure iOS credentials in EAS. Physical-device IPA builds usually require Apple Developer credentials and registered devices.
+### Expo Go
 
-After a successful workflow run, open the GitHub Actions run and download the `AssetFlow-internal-ipa` artifact. If the EAS build fails because credentials are missing, configure signing in EAS first and rerun the workflow.
+Expo Go is the recommended development path. It does not require Xcode, macOS, or Apple signing for normal app iteration.
 
-### 3. TestFlight And App Store Distribution
+### Unsigned IPA Workflow
 
-TestFlight and App Store distribution require an Apple Developer Program account and proper app signing. The `production` EAS profile is configured for store distribution, but credentials and App Store Connect setup are still required.
+The repository includes `.github/workflows/build-ios-unsigned.yml`, a manual GitHub Actions workflow that runs on macOS, generates the iOS project, builds an unsigned archive, and uploads an unsigned IPA artifact.
 
-### 4. Sideloadly Installation
+Unsigned IPA artifacts are useful for build validation, but they are not directly installable on a physical iPhone without valid signing or re-signing.
 
-Sideloadly and AltStore can install or re-sign an IPA onto an iPhone, but the IPA still needs valid signing or re-signing. GitHub Actions cannot magically install the app directly onto an iPhone, and it cannot bypass Apple signing requirements.
+### EAS Build
 
-## EAS Profiles
+`eas.json` includes these profiles:
 
-- `preview`: iOS simulator build, useful for quick cloud build checks.
-- `internal`: internal iOS build. Installing on physical devices may require Apple Developer credentials and registered devices.
-- `production`: store distribution build for TestFlight/App Store workflows.
+- `preview`: iOS simulator build.
+- `internal`: internal distribution build.
+- `production`: store distribution build.
 
-Automatic GitHub Actions IPA build:
-
-1. Add `EXPO_TOKEN` in GitHub repository secrets.
-2. Configure iOS credentials in EAS.
-3. Push to `main`.
-4. Open the completed `EAS iOS Build` workflow run.
-5. Download the uploaded `AssetFlow-internal-ipa` artifact.
-
-Manual GitHub Actions build:
-
-1. Add `EXPO_TOKEN` in GitHub repository secrets.
-2. Open the `EAS iOS Build` workflow in GitHub Actions.
-3. Choose `preview`, `internal`, or `production`.
-4. Run the workflow.
-5. Download the uploaded artifact when the build completes. The `preview` simulator profile is useful for cloud checks, but it is not the IPA you would install on a physical iPhone.
+Physical-device and App Store/TestFlight builds require Apple Developer credentials and proper iOS signing.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on push and pull request using `ubuntu-latest`. It installs dependencies, checks Expo dependency compatibility, runs TypeScript, runs lint only if a lint script is configured, validates Expo config, and bundles the iOS JavaScript output. It does not require an Apple Developer account or macOS.
+`.github/workflows/ci.yml` runs on push and pull request:
 
-## Architecture
+- install dependencies
+- check Expo dependency compatibility
+- run TypeScript
+- run lint if a lint script exists
+- validate Expo config
+- export the iOS JavaScript bundle
+
+## Project Structure
 
 ```text
 src/components
-src/screens
-src/navigation
-src/models
-src/store
-src/utils
 src/data
+src/models
+src/navigation
+src/screens
+src/store
 src/theme
+src/utils
 ```
+
+## Notes
+
+- The app uses local storage and does not require a backend.
+- Rates and fallback prices are estimates.
+- Repository: https://github.com/tungdang9524/assetflow-ios
