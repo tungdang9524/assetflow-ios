@@ -20,7 +20,9 @@ export type RootTabParamList = {
 export type PlanningStackParamList = {
   PlanningHome: undefined;
   SavingsGoals: undefined;
+  AddSavingsGoal: undefined;
   DebtsLoans: undefined;
+  AddDebtLoan: undefined;
   Budgets: undefined;
   AddBudget: undefined;
   BudgetDetail: { budgetId: string };

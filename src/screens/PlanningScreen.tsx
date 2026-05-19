@@ -16,6 +16,10 @@ import { useAppTheme } from '../theme/AppThemeProvider';
 import { formatCurrency } from '../utils/currency';
 
 type PlanningNavigation = NativeStackNavigationProp<PlanningStackParamList, 'PlanningHome'>;
+type SavingsGoalsNavigation = NativeStackNavigationProp<PlanningStackParamList, 'SavingsGoals'>;
+type AddSavingsGoalNavigation = NativeStackNavigationProp<PlanningStackParamList, 'AddSavingsGoal'>;
+type DebtsLoansNavigation = NativeStackNavigationProp<PlanningStackParamList, 'DebtsLoans'>;
+type AddDebtLoanNavigation = NativeStackNavigationProp<PlanningStackParamList, 'AddDebtLoan'>;
 
 function parseAmount(value: string) {
   return Number(value.replace(/,/g, '.'));
@@ -61,11 +65,9 @@ export function PlanningScreen() {
 }
 
 export function SavingsGoalsScreen() {
-  const { state, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal } = useFinance();
+  const navigation = useNavigation<SavingsGoalsNavigation>();
+  const { state, updateSavingsGoal, deleteSavingsGoal } = useFinance();
   const { colors } = useAppTheme();
-  const [goalName, setGoalName] = useState('');
-  const [goalTarget, setGoalTarget] = useState('');
-  const [goalCurrent, setGoalCurrent] = useState('');
   const [goalAdjustments, setGoalAdjustments] = useState<Record<string, string>>({});
   const sortedGoals = [...state.savingsGoals].sort((firstGoal, secondGoal) => {
     const firstCompleted = firstGoal.targetAmount > 0 && firstGoal.currentAmount >= firstGoal.targetAmount;
@@ -77,27 +79,6 @@ export function SavingsGoalsScreen() {
 
     return firstCompleted ? 1 : -1;
   });
-
-  function addGoal() {
-    const target = parseAmount(goalTarget);
-    const current = parseAmount(goalCurrent || '0');
-
-    if (!goalName.trim() || !Number.isFinite(target) || target <= 0 || !Number.isFinite(current) || current < 0) {
-      Alert.alert('Invalid goal', 'Enter a goal name and valid target amount.');
-      return;
-    }
-
-    addSavingsGoal({
-      name: goalName.trim(),
-      targetAmount: target,
-      currentAmount: current,
-      currency: 'VND',
-      color: colors.primary,
-    });
-    setGoalName('');
-    setGoalTarget('');
-    setGoalCurrent('');
-  }
 
   function adjustGoal(goalId: string, direction: 1 | -1) {
     const goal = state.savingsGoals.find((item) => item.id === goalId);
@@ -116,23 +97,21 @@ export function SavingsGoalsScreen() {
 
   return (
     <Screen>
-      <Card style={styles.card}>
-        <View style={styles.panelHeader}>
-          <View style={[styles.toolIcon, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="flag-outline" size={19} color={colors.primary} />
-          </View>
-          <View style={styles.flex}>
-            <AppText variant="heading">Savings goals</AppText>
-          </View>
+      <View style={styles.titleRow}>
+        <View>
+          <AppText variant="caption">Planning</AppText>
+          <AppText variant="title">Savings goals</AppText>
         </View>
-        <TextInput placeholder="Goal name" placeholderTextColor={colors.muted} value={goalName} onChangeText={setGoalName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
-        <View style={styles.inputRow}>
-          <TextInput placeholder="Target" placeholderTextColor={colors.muted} value={goalTarget} onChangeText={setGoalTarget} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-          <TextInput placeholder="Current" placeholderTextColor={colors.muted} value={goalCurrent} onChangeText={setGoalCurrent} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-        </View>
-        <PrimaryButton label="Add goal" icon="flag-outline" onPress={addGoal} />
+        <Pressable
+          accessibilityLabel="Add savings goal"
+          style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
+          onPress={() => navigation.navigate('AddSavingsGoal')}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </Pressable>
+      </View>
 
-        <View style={styles.itemList}>
+      <View style={styles.itemList}>
           {sortedGoals.map((goal) => {
             const percent = goal.targetAmount <= 0 ? 0 : goal.currentAmount / goal.targetAmount;
             const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
@@ -182,19 +161,64 @@ export function SavingsGoalsScreen() {
               </View>
             );
           })}
+      </View>
+    </Screen>
+  );
+}
+
+export function AddSavingsGoalScreen() {
+  const navigation = useNavigation<AddSavingsGoalNavigation>();
+  const { addSavingsGoal } = useFinance();
+  const { colors } = useAppTheme();
+  const [goalName, setGoalName] = useState('');
+  const [goalTarget, setGoalTarget] = useState('');
+  const [goalCurrent, setGoalCurrent] = useState('');
+
+  function addGoal() {
+    const target = parseAmount(goalTarget);
+    const current = parseAmount(goalCurrent || '0');
+
+    if (!goalName.trim() || !Number.isFinite(target) || target <= 0 || !Number.isFinite(current) || current < 0) {
+      Alert.alert('Invalid goal', 'Enter a goal name and valid target amount.');
+      return;
+    }
+
+    addSavingsGoal({
+      name: goalName.trim(),
+      targetAmount: target,
+      currentAmount: current,
+      currency: 'VND',
+      color: colors.primary,
+    });
+    navigation.goBack();
+  }
+
+  return (
+    <Screen>
+      <Card style={styles.card}>
+        <View style={styles.panelHeader}>
+          <View style={[styles.toolIcon, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="flag-outline" size={19} color={colors.primary} />
+          </View>
+          <View style={styles.flex}>
+            <AppText variant="heading">Add savings goal</AppText>
+          </View>
         </View>
+        <TextInput placeholder="Goal name" placeholderTextColor={colors.muted} value={goalName} onChangeText={setGoalName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
+        <View style={styles.inputRow}>
+          <TextInput placeholder="Target" placeholderTextColor={colors.muted} value={goalTarget} onChangeText={setGoalTarget} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+          <TextInput placeholder="Current" placeholderTextColor={colors.muted} value={goalCurrent} onChangeText={setGoalCurrent} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+        </View>
+        <PrimaryButton label="Add goal" icon="flag-outline" onPress={addGoal} />
       </Card>
     </Screen>
   );
 }
 
 export function DebtsLoansScreen() {
-  const { state, addDebt, toggleDebtPaid, deleteDebt } = useFinance();
+  const navigation = useNavigation<DebtsLoansNavigation>();
+  const { state, toggleDebtPaid, deleteDebt } = useFinance();
   const { colors } = useAppTheme();
-  const [debtType, setDebtType] = useState<DebtType>('lent');
-  const [debtName, setDebtName] = useState('');
-  const [debtPerson, setDebtPerson] = useState('');
-  const [debtAmount, setDebtAmount] = useState('');
   const sortedDebts = [...state.debts].sort((firstDebt, secondDebt) => {
     if (firstDebt.isPaid === secondDebt.isPaid) {
       return 0;
@@ -203,55 +227,23 @@ export function DebtsLoansScreen() {
     return firstDebt.isPaid ? 1 : -1;
   });
 
-  function addDebtItem() {
-    const amount = parseAmount(debtAmount);
-
-    if (!debtName.trim() || !debtPerson.trim() || !Number.isFinite(amount) || amount <= 0) {
-      Alert.alert('Invalid debt', 'Enter name, person, and amount.');
-      return;
-    }
-
-    addDebt({
-      type: debtType,
-      name: debtName.trim(),
-      person: debtPerson.trim(),
-      amount,
-      currency: 'VND',
-    });
-    setDebtName('');
-    setDebtPerson('');
-    setDebtAmount('');
-  }
-
   return (
     <Screen>
-      <Card style={styles.card}>
-        <View style={styles.panelHeader}>
-          <View style={[styles.toolIcon, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="people-outline" size={19} color={colors.primary} />
-          </View>
-          <View style={styles.flex}>
-            <AppText variant="heading">Debts & loans</AppText>
-          </View>
+      <View style={styles.titleRow}>
+        <View>
+          <AppText variant="caption">Planning</AppText>
+          <AppText variant="title">Debts & loans</AppText>
         </View>
-        <View style={styles.segment}>
-          {(['lent', 'borrowed'] as DebtType[]).map((item) => {
-            const selected = debtType === item;
-            return (
-              <Pressable key={item} style={[styles.segmentItem, { borderColor: colors.border, backgroundColor: selected ? colors.primary : colors.surface }]} onPress={() => setDebtType(item)}>
-                <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentText}>{item === 'lent' ? 'Lent' : 'Borrowed'}</AppText>
-              </Pressable>
-            );
-          })}
-        </View>
-        <TextInput placeholder="Label" placeholderTextColor={colors.muted} value={debtName} onChangeText={setDebtName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
-        <View style={styles.inputRow}>
-          <TextInput placeholder="Person" placeholderTextColor={colors.muted} value={debtPerson} onChangeText={setDebtPerson} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-          <TextInput placeholder="Amount" placeholderTextColor={colors.muted} value={debtAmount} onChangeText={setDebtAmount} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
-        </View>
-        <PrimaryButton label="Add debt" icon="person-add-outline" onPress={addDebtItem} />
+        <Pressable
+          accessibilityLabel="Add debt or loan"
+          style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
+          onPress={() => navigation.navigate('AddDebtLoan')}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </Pressable>
+      </View>
 
-        <View style={styles.itemList}>
+      <View style={styles.itemList}>
           {sortedDebts.map((debt) => (
             <View key={debt.id} style={[styles.debtCard, { borderColor: debt.isPaid ? colors.border : debt.type === 'lent' ? colors.primary : colors.warning }]}>
               <View style={styles.itemTop}>
@@ -278,7 +270,65 @@ export function DebtsLoansScreen() {
               </View>
             </View>
           ))}
+      </View>
+    </Screen>
+  );
+}
+
+export function AddDebtLoanScreen() {
+  const navigation = useNavigation<AddDebtLoanNavigation>();
+  const { addDebt } = useFinance();
+  const { colors } = useAppTheme();
+  const [debtType, setDebtType] = useState<DebtType>('lent');
+  const [debtName, setDebtName] = useState('');
+  const [debtPerson, setDebtPerson] = useState('');
+  const [debtAmount, setDebtAmount] = useState('');
+
+  function addDebtItem() {
+    const amount = parseAmount(debtAmount);
+
+    if (!debtName.trim() || !debtPerson.trim() || !Number.isFinite(amount) || amount <= 0) {
+      Alert.alert('Invalid debt', 'Enter name, person, and amount.');
+      return;
+    }
+
+    addDebt({
+      type: debtType,
+      name: debtName.trim(),
+      person: debtPerson.trim(),
+      amount,
+      currency: 'VND',
+    });
+    navigation.goBack();
+  }
+
+  return (
+    <Screen>
+      <Card style={styles.card}>
+        <View style={styles.panelHeader}>
+          <View style={[styles.toolIcon, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="people-outline" size={19} color={colors.primary} />
+          </View>
+          <View style={styles.flex}>
+            <AppText variant="heading">Add debt or loan</AppText>
+          </View>
         </View>
+        <View style={styles.segment}>
+          {(['lent', 'borrowed'] as DebtType[]).map((item) => {
+            const selected = debtType === item;
+            return (
+              <Pressable key={item} style={[styles.segmentItem, { borderColor: colors.border, backgroundColor: selected ? colors.primary : colors.surface }]} onPress={() => setDebtType(item)}>
+                <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentText}>{item === 'lent' ? 'Lent' : 'Borrowed'}</AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+        <TextInput placeholder="Label" placeholderTextColor={colors.muted} value={debtName} onChangeText={setDebtName} style={[styles.input, { borderColor: colors.border, color: colors.text }]} />
+        <View style={styles.inputRow}>
+          <TextInput placeholder="Person" placeholderTextColor={colors.muted} value={debtPerson} onChangeText={setDebtPerson} style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+          <TextInput placeholder="Amount" placeholderTextColor={colors.muted} value={debtAmount} onChangeText={setDebtAmount} keyboardType="decimal-pad" style={[styles.input, styles.flex, { borderColor: colors.border, color: colors.text }]} />
+        </View>
+        <PrimaryButton label="Add debt" icon="person-add-outline" onPress={addDebtItem} />
       </Card>
     </Screen>
   );
@@ -287,6 +337,18 @@ export function DebtsLoansScreen() {
 const styles = StyleSheet.create({
   card: {
     gap: 14,
+  },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
   },
   menuCard: {
     flex: 1,

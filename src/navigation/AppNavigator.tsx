@@ -9,7 +9,7 @@ import { AddTransactionScreen } from '../screens/AddTransactionScreen';
 import { AddBudgetScreen, BudgetDetailScreen, BudgetsScreen } from '../screens/BudgetsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
-import { DebtsLoansScreen, PlanningScreen, SavingsGoalsScreen } from '../screens/PlanningScreen';
+import { AddDebtLoanScreen, AddSavingsGoalScreen, DebtsLoansScreen, PlanningScreen, SavingsGoalsScreen } from '../screens/PlanningScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
 import {
   BackupSettingsScreen,
@@ -83,7 +83,9 @@ function PlanningStackNavigator() {
     >
       <PlanningStack.Screen name="PlanningHome" component={PlanningScreen} options={{ title: 'Planning' }} />
       <PlanningStack.Screen name="SavingsGoals" component={SavingsGoalsScreen} options={{ title: 'Savings Goals' }} />
+      <PlanningStack.Screen name="AddSavingsGoal" component={AddSavingsGoalScreen} options={{ title: 'Add Savings Goal' }} />
       <PlanningStack.Screen name="DebtsLoans" component={DebtsLoansScreen} options={{ title: 'Debts & Loans' }} />
+      <PlanningStack.Screen name="AddDebtLoan" component={AddDebtLoanScreen} options={{ title: 'Add Debt or Loan' }} />
       <PlanningStack.Screen name="Budgets" component={BudgetsScreen} options={{ title: 'Budgets' }} />
       <PlanningStack.Screen name="AddBudget" component={AddBudgetScreen} options={{ title: 'Add Budget' }} />
       <PlanningStack.Screen name="BudgetDetail" component={BudgetDetailScreen} options={{ title: 'Edit Budget' }} />
