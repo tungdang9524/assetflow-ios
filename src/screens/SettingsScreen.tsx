@@ -489,7 +489,7 @@ export function CategoryDetailSettingsScreen() {
 export function SecuritySettingsScreen() {
   const { state, updateSettings } = useFinance();
   const { colors } = useAppTheme();
-  const [pin, setPin] = useState(state.settings.pinCode ?? '');
+  const [pin, setPin] = useState('');
 
   function savePin() {
     if (pin.trim().length < 4) {
@@ -498,6 +498,21 @@ export function SecuritySettingsScreen() {
     }
 
     updateSettings({ pinEnabled: true, pinCode: pin.trim() });
+    setPin('');
+  }
+
+  function disablePin() {
+    if (!state.settings.pinEnabled) {
+      return;
+    }
+
+    if (pin.trim() !== state.settings.pinCode) {
+      Alert.alert('Wrong PIN', 'Re-enter your current PIN to disable PIN lock.');
+      return;
+    }
+
+    updateSettings({ pinEnabled: false, pinCode: undefined });
+    setPin('');
   }
 
   return (
@@ -508,15 +523,15 @@ export function SecuritySettingsScreen() {
           keyboardType="number-pad"
           maxLength={6}
           secureTextEntry
-          placeholder="4-6 digit PIN"
+          placeholder={state.settings.pinEnabled ? 'Re-enter current PIN' : '4-6 digit PIN'}
           placeholderTextColor={colors.muted}
           value={pin}
           onChangeText={setPin}
           style={[styles.input, { borderColor: colors.border, color: colors.text }]}
         />
         <View style={styles.segment}>
-          <PrimaryButton label="Enable PIN" icon="lock-closed-outline" onPress={savePin} />
-          <Pressable style={[styles.clearButton, { borderColor: colors.border }]} onPress={() => updateSettings({ pinEnabled: false, pinCode: undefined })}>
+          <PrimaryButton label={state.settings.pinEnabled ? 'Change PIN' : 'Enable PIN'} icon="lock-closed-outline" onPress={savePin} />
+          <Pressable disabled={!state.settings.pinEnabled} style={[styles.clearButton, { borderColor: colors.border, opacity: state.settings.pinEnabled ? 1 : 0.45 }]} onPress={disablePin}>
             <AppText style={styles.segmentLabel}>Disable</AppText>
           </Pressable>
         </View>
