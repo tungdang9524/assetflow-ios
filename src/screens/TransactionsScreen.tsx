@@ -186,7 +186,6 @@ export function TransactionsScreen() {
                       }}
                     >
                       <AppText color={selected ? colors.primary : colors.text} style={styles.typeOptionText}>{option.label}</AppText>
-                      {selected ? <AppText color={colors.primary} style={styles.typeOptionText}>Selected</AppText> : null}
                     </Pressable>
                   );
                 })}
