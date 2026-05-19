@@ -69,6 +69,7 @@ export function SavingsGoalsScreen() {
   const { state, updateSavingsGoal, deleteSavingsGoal } = useFinance();
   const { colors } = useAppTheme();
   const [goalAdjustments, setGoalAdjustments] = useState<Record<string, string>>({});
+  const [goalSearch, setGoalSearch] = useState('');
   const sortedGoals = [...state.savingsGoals].sort((firstGoal, secondGoal) => {
     const firstCompleted = firstGoal.targetAmount > 0 && firstGoal.currentAmount >= firstGoal.targetAmount;
     const secondCompleted = secondGoal.targetAmount > 0 && secondGoal.currentAmount >= secondGoal.targetAmount;
@@ -79,6 +80,10 @@ export function SavingsGoalsScreen() {
 
     return firstCompleted ? 1 : -1;
   });
+  const normalizedGoalSearch = goalSearch.trim().toLowerCase();
+  const visibleGoals = normalizedGoalSearch
+    ? sortedGoals.filter((goal) => goal.name.toLowerCase().includes(normalizedGoalSearch))
+    : sortedGoals;
 
   function adjustGoal(goalId: string, direction: 1 | -1) {
     const goal = state.savingsGoals.find((item) => item.id === goalId);
@@ -119,8 +124,19 @@ export function SavingsGoalsScreen() {
         </Pressable>
       </View>
 
+      <View style={[styles.searchBox, { borderColor: colors.border }]}>
+        <Ionicons name="search" size={18} color={colors.muted} />
+        <TextInput
+          placeholder="Search goals"
+          placeholderTextColor={colors.muted}
+          value={goalSearch}
+          onChangeText={setGoalSearch}
+          style={[styles.searchInput, { color: colors.text }]}
+        />
+      </View>
+
       <View style={styles.itemList}>
-          {sortedGoals.map((goal) => {
+          {visibleGoals.map((goal) => {
             const percent = goal.targetAmount <= 0 ? 0 : goal.currentAmount / goal.targetAmount;
             const isCompleted = percent >= 1;
             const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
@@ -229,6 +245,7 @@ export function DebtsLoansScreen() {
   const { state, toggleDebtPaid, deleteDebt } = useFinance();
   const { colors } = useAppTheme();
   const [selectedDebtType, setSelectedDebtType] = useState<DebtType>('lent');
+  const [debtSearch, setDebtSearch] = useState('');
   const sortedDebts = [...state.debts].sort((firstDebt, secondDebt) => {
     if (firstDebt.isPaid === secondDebt.isPaid) {
       return 0;
@@ -236,7 +253,18 @@ export function DebtsLoansScreen() {
 
     return firstDebt.isPaid ? 1 : -1;
   });
-  const visibleDebts = sortedDebts.filter((debt) => debt.type === selectedDebtType);
+  const normalizedDebtSearch = debtSearch.trim().toLowerCase();
+  const visibleDebts = sortedDebts.filter((debt) => {
+    if (debt.type !== selectedDebtType) {
+      return false;
+    }
+
+    if (!normalizedDebtSearch) {
+      return true;
+    }
+
+    return `${debt.name} ${debt.person}`.toLowerCase().includes(normalizedDebtSearch);
+  });
 
   function confirmDeleteDebt(debtId: string, debtName: string) {
     Alert.alert('Delete debt or loan', `Delete ${debtName}?`, [
@@ -276,6 +304,17 @@ export function DebtsLoansScreen() {
             </Pressable>
           );
         })}
+      </View>
+
+      <View style={[styles.searchBox, { borderColor: colors.border }]}>
+        <Ionicons name="search" size={18} color={colors.muted} />
+        <TextInput
+          placeholder="Search debts and loans"
+          placeholderTextColor={colors.muted}
+          value={debtSearch}
+          onChangeText={setDebtSearch}
+          style={[styles.searchInput, { color: colors.text }]}
+        />
       </View>
 
       <View style={styles.itemList}>
@@ -429,6 +468,21 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  searchBox: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    minHeight: 44,
+    padding: 0,
   },
   flex: {
     flex: 1,
