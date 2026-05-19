@@ -45,7 +45,7 @@ export function AddTransactionScreen() {
   const route = useRoute<Route>();
   const { state, addTransaction, updateSavingsGoal, updateTransaction, deleteTransaction } = useFinance();
   const { colors } = useAppTheme();
-  const moneyAccounts = state.accounts.filter((item) => item.type !== 'crypto');
+  const moneyAccounts = state.accounts.filter((item) => item.type !== 'crypto' && item.type !== 'stock' && item.type !== 'etf');
   const editingTransaction = state.transactions.find((transaction) => transaction.id === route.params?.transactionId);
   const [type, setType] = useState<TransactionType>(editingTransaction?.type ?? 'expense');
   const [accountId, setAccountId] = useState(editingTransaction?.accountId ?? moneyAccounts[0]?.id ?? '');

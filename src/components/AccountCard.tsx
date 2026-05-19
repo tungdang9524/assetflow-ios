@@ -19,15 +19,22 @@ export function AccountCard({ account, convertedBalance }: AccountCardProps) {
   const cryptoValueUsd = account.cryptoHoldings?.length
     ? account.cryptoHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
     : undefined;
+  const investmentValueUsd = account.investmentHoldings?.length
+    ? account.investmentHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
+    : undefined;
   const primaryBalance =
     account.type === 'crypto'
       ? cryptoValueUsd !== undefined
         ? formatCurrency(cryptoValueUsd, 'USD')
         : formatCryptoAmount(account.balance, account.cryptoSymbol)
+      : account.type === 'stock' || account.type === 'etf'
+        ? formatCurrency(investmentValueUsd ?? account.balance, 'USD')
       : formatCurrency(account.balance, account.currency);
   const typeLabel =
     account.type === 'crypto' && account.cryptoHoldings?.length
       ? `${account.cryptoHoldings.length} assets`
+      : (account.type === 'stock' || account.type === 'etf') && account.investmentHoldings?.length
+        ? `${account.investmentHoldings.length} assets`
       : account.type === 'crypto' && account.cryptoName
         ? account.cryptoName
         : formatAccountType(account.type);

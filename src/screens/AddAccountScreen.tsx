@@ -9,7 +9,8 @@ import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
 import { getCryptoAsset, supportedCryptoAssets } from '../data/cryptoAssets';
-import { AccountType, CryptoHolding, CryptoId, CurrencyCode } from '../models/finance';
+import { getInvestmentAsset, getInvestmentAssets } from '../data/investmentAssets';
+import { AccountType, CryptoHolding, CryptoId, CurrencyCode, InvestmentAssetType, InvestmentHolding } from '../models/finance';
 import { AccountsStackParamList } from '../navigation/types';
 import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
@@ -20,9 +21,11 @@ type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AddAccount'
 type Route = RouteProp<AccountsStackParamList, 'AddAccount'>;
 type CryptoHoldingNavigation = NativeStackNavigationProp<AccountsStackParamList, 'AddCryptoHolding'>;
 type CryptoHoldingRoute = RouteProp<AccountsStackParamList, 'AddCryptoHolding'>;
+type InvestmentHoldingNavigation = NativeStackNavigationProp<AccountsStackParamList, 'AddInvestmentHolding'>;
+type InvestmentHoldingRoute = RouteProp<AccountsStackParamList, 'AddInvestmentHolding'>;
 
-const accountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign', 'credit', 'crypto'];
-const accountColors = ['#50A878', '#3D7BFF', '#F59E0B', '#8B5CF6', '#0891B2', '#D94841', '#7C3AED'];
+const accountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign', 'credit', 'crypto', 'stock', 'etf'];
+const accountColors = ['#50A878', '#3D7BFF', '#F59E0B', '#8B5CF6', '#0891B2', '#D94841', '#7C3AED', '#2563EB', '#059669'];
 const iconsByType: Record<AccountType, keyof typeof Ionicons.glyphMap> = {
   cash: 'wallet-outline',
   bank: 'business-outline',
@@ -31,6 +34,8 @@ const iconsByType: Record<AccountType, keyof typeof Ionicons.glyphMap> = {
   foreign: 'earth-outline',
   credit: 'card-outline',
   crypto: 'logo-bitcoin',
+  stock: 'trending-up-outline',
+  etf: 'stats-chart-outline',
 };
 
 function parseAmount(value: string) {
@@ -66,6 +71,10 @@ function getLegacyHolding(account: ReturnType<typeof useFinance>['state']['accou
   ];
 }
 
+function getInvestmentValue(holdings: InvestmentHolding[]) {
+  return holdings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0);
+}
+
 export function AddAccountScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
@@ -76,9 +85,10 @@ export function AddAccountScreen() {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [name, setName] = useState(editingAccount?.name ?? '');
   const [currency, setCurrency] = useState<CurrencyCode>(editingAccount?.currency ?? 'VND');
-  const [balance, setBalance] = useState(editingAccount && editingAccount.type !== 'crypto' ? String(editingAccount.balance) : '');
+  const [balance, setBalance] = useState(editingAccount && editingAccount.type !== 'crypto' && editingAccount.type !== 'stock' && editingAccount.type !== 'etf' ? String(editingAccount.balance) : '');
   const [color, setColor] = useState(editingAccount?.color ?? accountColors[0]);
   const [cryptoHoldings, setCryptoHoldings] = useState<CryptoHolding[]>(getLegacyHolding(editingAccount));
+  const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>(editingAccount?.investmentHoldings ?? []);
   const [creditLimit, setCreditLimit] = useState(editingAccount?.creditLimit ? String(editingAccount.creditLimit) : '');
   const [statementDay, setStatementDay] = useState(editingAccount?.statementDay ? String(editingAccount.statementDay) : '20');
   const [paymentDueDay, setPaymentDueDay] = useState(editingAccount?.paymentDueDay ? String(editingAccount.paymentDueDay) : '5');
@@ -107,6 +117,28 @@ export function AddAccountScreen() {
     });
     navigation.setParams({ cryptoHolding: undefined });
   }, [navigation, route.params?.cryptoHolding]);
+
+  useEffect(() => {
+    const pendingHolding = route.params?.investmentHolding;
+
+    if (!pendingHolding) {
+      return;
+    }
+
+    setAccountType(pendingHolding.assetType);
+    setInvestmentHoldings((currentHoldings) => {
+      const existingIndex = currentHoldings.findIndex((holding) => holding.id === pendingHolding.id);
+
+      if (existingIndex < 0) {
+        return [...currentHoldings, pendingHolding];
+      }
+
+      const nextHoldings = [...currentHoldings];
+      nextHoldings[existingIndex] = pendingHolding;
+      return nextHoldings;
+    });
+    navigation.setParams({ investmentHolding: undefined });
+  }, [navigation, route.params?.investmentHolding]);
 
   function handleSubmit() {
     const parsedBalance = parseAmount(balance || '0');
@@ -137,6 +169,46 @@ export function AddAccountScreen() {
         paymentDueDay: undefined,
         minimumPayment: undefined,
         annualInterestRate: undefined,
+      } as const;
+
+      if (editingAccount) {
+        updateAccount(editingAccount.id, nextAccount);
+      } else {
+        addAccount(nextAccount);
+      }
+
+      navigation.goBack();
+      return;
+    }
+
+    if (accountType === 'stock' || accountType === 'etf') {
+      const holdings = investmentHoldings.filter((holding) => holding.assetType === accountType);
+
+      if (holdings.length === 0) {
+        Alert.alert('No assets', `Add at least one ${accountType === 'stock' ? 'stock' : 'ETF'} and quantity.`);
+        return;
+      }
+
+      const nextAccount = {
+        name: name.trim() || (accountType === 'stock' ? 'Stock Portfolio' : 'ETF Portfolio'),
+        type: accountType,
+        currency: 'USD',
+        balance: getInvestmentValue(holdings),
+        icon: iconsByType[accountType],
+        color: accountType === 'stock' ? '#2563EB' : '#059669',
+        investmentHoldings: holdings,
+        creditLimit: undefined,
+        statementDay: undefined,
+        paymentDueDay: undefined,
+        minimumPayment: undefined,
+        annualInterestRate: undefined,
+        cryptoId: undefined,
+        cryptoName: undefined,
+        cryptoSymbol: undefined,
+        cryptoPriceUsd: undefined,
+        crypto24hChange: undefined,
+        cryptoHoldings: undefined,
+        lastPriceUpdatedAt: undefined,
       } as const;
 
       if (editingAccount) {
@@ -205,6 +277,7 @@ export function AddAccountScreen() {
       cryptoPriceUsd: undefined,
       crypto24hChange: undefined,
       cryptoHoldings: undefined,
+      investmentHoldings: undefined,
       lastPriceUpdatedAt: undefined,
     };
 
@@ -247,7 +320,7 @@ export function AddAccountScreen() {
         <View style={styles.inputGroup}>
           <AppText variant="caption">Name</AppText>
           <TextInput
-            placeholder={accountType === 'crypto' ? 'Crypto Wallet' : 'My account'}
+            placeholder={accountType === 'crypto' ? 'Crypto Wallet' : accountType === 'stock' ? 'Stock Portfolio' : accountType === 'etf' ? 'ETF Portfolio' : 'My account'}
             placeholderTextColor={colors.muted}
             value={name}
             onChangeText={setName}
@@ -277,7 +350,7 @@ export function AddAccountScreen() {
                     onPress={() => {
                       setAccountType(item);
                       setIsTypeDropdownOpen(false);
-                      if (item === 'crypto') {
+                      if (item === 'crypto' || item === 'stock' || item === 'etf') {
                         setCurrency('USD');
                       }
                     }}
@@ -318,6 +391,44 @@ export function AddAccountScreen() {
                   <Pressable
                     style={styles.iconTap}
                     onPress={() => setCryptoHoldings((currentHoldings) => currentHoldings.filter((item) => item.id !== holding.id))}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                  </Pressable>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : accountType === 'stock' || accountType === 'etf' ? (
+          <View style={styles.inputGroup}>
+            <View style={styles.rowHeader}>
+              <AppText variant="caption">{accountType === 'stock' ? 'Stock assets' : 'ETF assets'}</AppText>
+              <Pressable
+                style={[styles.smallButton, { borderColor: colors.border }]}
+                onPress={() => navigation.navigate('AddInvestmentHolding', { accountId: editingAccount?.id, assetType: accountType, holding: undefined })}
+              >
+                <Ionicons name="add" size={16} color={colors.primary} />
+                <AppText color={colors.primary} style={styles.smallButtonText}>Add</AppText>
+              </Pressable>
+            </View>
+            <View style={styles.holdingList}>
+              {investmentHoldings.filter((holding) => holding.assetType === accountType).map((holding) => (
+                <Pressable
+                  key={holding.id}
+                  style={[styles.holdingRow, { borderColor: colors.border }]}
+                  onPress={() => navigation.navigate('AddInvestmentHolding', { accountId: editingAccount?.id, assetType: accountType, holding })}
+                >
+                  <View style={[styles.assetDot, { backgroundColor: holding.color }]} />
+                  <View style={styles.dropdownCopy}>
+                    <AppText style={styles.optionText}>{holding.assetSymbol}</AppText>
+                    <AppText variant="caption">{holding.assetName}</AppText>
+                  </View>
+                  <View style={styles.holdingAmount}>
+                    <AppText style={styles.optionText}>{holding.quantity}</AppText>
+                    <AppText variant="caption">{formatCurrency(holding.quantity * (holding.priceUsd ?? 0), 'USD')}</AppText>
+                  </View>
+                  <Pressable
+                    style={styles.iconTap}
+                    onPress={() => setInvestmentHoldings((currentHoldings) => currentHoldings.filter((item) => item.id !== holding.id))}
                   >
                     <Ionicons name="trash-outline" size={18} color={colors.danger} />
                   </Pressable>
@@ -471,6 +582,100 @@ export function AddCryptoHoldingScreen() {
                       <AppText variant="caption">{formatCurrency(asset.fallbackPriceUsd, 'USD')}</AppText>
                     </View>
                     {asset.id === cryptoId ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <AppText variant="caption">Quantity</AppText>
+          <TextInput
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={quantity}
+            onChangeText={setQuantity}
+            style={[styles.amountInput, { borderColor: colors.border, color: colors.text }]}
+          />
+        </View>
+      </Card>
+      <PrimaryButton label="Save asset" icon="checkmark-circle-outline" onPress={saveHolding} />
+    </Screen>
+  );
+}
+
+export function AddInvestmentHoldingScreen() {
+  const navigation = useNavigation<InvestmentHoldingNavigation>();
+  const route = useRoute<InvestmentHoldingRoute>();
+  const { colors } = useAppTheme();
+  const assetType = route.params?.assetType ?? route.params?.holding?.assetType ?? 'stock';
+  const assets = getInvestmentAssets(assetType);
+  const [assetId, setAssetId] = useState(route.params?.holding?.assetId ?? assets[0].id);
+  const [quantity, setQuantity] = useState(route.params?.holding ? String(route.params.holding.quantity) : '');
+  const [isAssetDropdownOpen, setIsAssetDropdownOpen] = useState(false);
+  const selectedAsset = getInvestmentAsset(assetType, assetId);
+
+  function saveHolding() {
+    const parsedQuantity = parseAmount(quantity);
+
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      Alert.alert('Invalid quantity', `Enter a ${assetType === 'stock' ? 'share' : 'unit'} quantity greater than zero.`);
+      return;
+    }
+
+    const nextHolding: InvestmentHolding = {
+      id: route.params?.holding?.id ?? `holding-${Date.now()}`,
+      assetId: selectedAsset.id,
+      assetType,
+      assetName: selectedAsset.name,
+      assetSymbol: selectedAsset.symbol,
+      quantity: parsedQuantity,
+      priceUsd: selectedAsset.fallbackPriceUsd,
+      color: selectedAsset.color,
+    };
+
+    navigation.dispatch(
+      StackActions.popTo('AddAccount', { accountId: route.params?.accountId, investmentHolding: nextHolding }, { merge: true }),
+    );
+  }
+
+  return (
+    <Screen>
+      <Card style={styles.form}>
+        <View style={styles.inputGroup}>
+          <AppText variant="caption">{assetType === 'stock' ? 'Stock' : 'ETF'}</AppText>
+          <Pressable
+            style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setIsAssetDropdownOpen((value) => !value)}
+          >
+            <View style={[styles.assetDot, { backgroundColor: selectedAsset.color }]} />
+            <View style={styles.dropdownCopy}>
+              <AppText style={styles.optionText}>{selectedAsset.symbol} - {selectedAsset.name}</AppText>
+              <AppText variant="caption">Fallback price {formatCurrency(selectedAsset.fallbackPriceUsd, 'USD')}</AppText>
+            </View>
+            <Ionicons name={isAssetDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+          </Pressable>
+
+          {isAssetDropdownOpen ? (
+            <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                {assets.map((asset) => (
+                  <Pressable
+                    key={asset.id}
+                    style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                    onPress={() => {
+                      setAssetId(asset.id);
+                      setIsAssetDropdownOpen(false);
+                    }}
+                  >
+                    <View style={[styles.assetDot, { backgroundColor: asset.color }]} />
+                    <View style={styles.dropdownCopy}>
+                      <AppText style={styles.optionText}>{asset.symbol} - {asset.name}</AppText>
+                      <AppText variant="caption">{formatCurrency(asset.fallbackPriceUsd, 'USD')}</AppText>
+                    </View>
+                    {asset.id === assetId ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
                   </Pressable>
                 ))}
               </ScrollView>

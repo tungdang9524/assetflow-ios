@@ -12,6 +12,11 @@ export function getNetWorthVnd(accounts: Account[], usdToVndRate: number) {
       return sum + account.balance * (account.cryptoPriceUsd ?? 0) * usdToVndRate;
     }
 
+    if (account.type === 'stock' || account.type === 'etf') {
+      const investmentValueUsd = account.investmentHoldings?.reduce((holdingSum, holding) => holdingSum + holding.quantity * (holding.priceUsd ?? 0), 0) ?? account.balance;
+      return sum + investmentValueUsd * usdToVndRate;
+    }
+
     return sum + convertCurrency(account.balance, account.currency, 'VND', usdToVndRate);
   }, 0);
 }

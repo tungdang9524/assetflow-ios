@@ -1,6 +1,6 @@
 export type CurrencyCode = 'VND' | 'USD';
 
-export type AccountType = 'cash' | 'bank' | 'ewallet' | 'savings' | 'foreign' | 'credit' | 'crypto';
+export type AccountType = 'cash' | 'bank' | 'ewallet' | 'savings' | 'foreign' | 'credit' | 'crypto' | 'stock' | 'etf';
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
 
@@ -9,6 +9,8 @@ export type CategoryType = 'income' | 'expense';
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 export type CryptoId = string;
+
+export type InvestmentAssetType = 'stock' | 'etf';
 
 export type RecurringInterval = 'monthly';
 
@@ -29,11 +31,23 @@ export interface Account {
   crypto24hChange?: number;
   lastPriceUpdatedAt?: string;
   cryptoHoldings?: CryptoHolding[];
+  investmentHoldings?: InvestmentHolding[];
   creditLimit?: number;
   statementDay?: number;
   paymentDueDay?: number;
   minimumPayment?: number;
   annualInterestRate?: number;
+}
+
+export interface InvestmentHolding {
+  id: string;
+  assetId: string;
+  assetType: InvestmentAssetType;
+  assetName: string;
+  assetSymbol: string;
+  quantity: number;
+  priceUsd?: number;
+  color: string;
 }
 
 export interface CryptoHolding {

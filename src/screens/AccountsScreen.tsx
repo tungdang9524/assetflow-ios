@@ -215,6 +215,14 @@ export function AccountsScreen() {
       return `${formatCurrency(usdValue, 'USD')} - ${formatCurrency(vndValue, 'VND')}`;
     }
 
+    if (account.type === 'stock' || account.type === 'etf') {
+      const usdValue = account.investmentHoldings?.length
+        ? account.investmentHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
+        : account.balance;
+      const vndValue = convertCurrency(usdValue, 'USD', 'VND', state.settings.usdToVndRate);
+      return `${formatCurrency(usdValue, 'USD')} - ${formatCurrency(vndValue, 'VND')}`;
+    }
+
     if (account.currency === 'USD') {
       return `${formatCurrency(convertCurrency(account.balance, 'USD', 'VND', state.settings.usdToVndRate), 'VND')} converted`;
     }

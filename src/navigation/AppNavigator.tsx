@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AccountsScreen } from '../screens/AccountsScreen';
-import { AddAccountScreen, AddCryptoHoldingScreen } from '../screens/AddAccountScreen';
+import { AddAccountScreen, AddCryptoHoldingScreen, AddInvestmentHoldingScreen } from '../screens/AddAccountScreen';
 import { AddTransactionScreen } from '../screens/AddTransactionScreen';
 import { AddBudgetScreen, BudgetDetailScreen, BudgetsScreen } from '../screens/BudgetsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
@@ -47,6 +47,7 @@ function AccountsStackNavigator() {
       <AccountsStack.Screen name="AccountsList" component={AccountsScreen} options={{ title: 'Accounts' }} />
       <AccountsStack.Screen name="AddAccount" component={AddAccountScreen} options={{ title: 'Add Account', presentation: 'modal' }} />
       <AccountsStack.Screen name="AddCryptoHolding" component={AddCryptoHoldingScreen} options={{ title: 'Crypto Asset', presentation: 'modal' }} />
+      <AccountsStack.Screen name="AddInvestmentHolding" component={AddInvestmentHoldingScreen} options={{ title: 'Investment Asset', presentation: 'modal' }} />
     </AccountsStack.Navigator>
   );
 }

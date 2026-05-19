@@ -1,7 +1,8 @@
 export type AccountsStackParamList = {
   AccountsList: undefined;
-  AddAccount: { accountId?: string; cryptoHolding?: import('../models/finance').CryptoHolding } | undefined;
+  AddAccount: { accountId?: string; cryptoHolding?: import('../models/finance').CryptoHolding; investmentHolding?: import('../models/finance').InvestmentHolding } | undefined;
   AddCryptoHolding: { accountId?: string; holding?: import('../models/finance').CryptoHolding } | undefined;
+  AddInvestmentHolding: { accountId?: string; assetType: import('../models/finance').InvestmentAssetType; holding?: import('../models/finance').InvestmentHolding } | undefined;
 };
 
 export type TransactionsStackParamList = {
