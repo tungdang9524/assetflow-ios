@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,18 +9,37 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { FinanceProvider, useFinance } from './src/store/FinanceStore';
 import { AppThemeProvider, useAppTheme } from './src/theme/AppThemeProvider';
 
+const LAUNCH_SCREEN_MIN_MS = 900;
+
+function LaunchScreen() {
+  const { navigationTheme } = useAppTheme();
+
+  return (
+    <View style={[styles.launchScreen, { backgroundColor: navigationTheme.colors.background }]}>
+      <Image source={require('./icon.png')} style={styles.launchIcon} />
+    </View>
+  );
+}
+
 function AppShell() {
   const { isReady } = useFinance();
   const { state } = useFinance();
   const { navigationTheme, isDark } = useAppTheme();
   const [isUnlocked, setIsUnlocked] = React.useState(false);
+  const [isLaunchVisible, setIsLaunchVisible] = React.useState(true);
 
-  if (!isReady) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: navigationTheme.colors.background }}>
-        <ActivityIndicator color={navigationTheme.colors.primary} />
-      </View>
-    );
+  React.useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setIsLaunchVisible(false), LAUNCH_SCREEN_MIN_MS);
+
+    return () => clearTimeout(timeout);
+  }, [isReady]);
+
+  if (!isReady || isLaunchVisible) {
+    return <LaunchScreen />;
   }
 
   return (
@@ -30,6 +49,19 @@ function AppShell() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  launchScreen: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  launchIcon: {
+    borderRadius: 34,
+    height: 120,
+    width: 120,
+  },
+});
 
 export default function App() {
   return (
