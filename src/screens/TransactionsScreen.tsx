@@ -152,10 +152,11 @@ export function TransactionsScreen() {
         </View>
         <Pressable
           accessibilityLabel="Add transaction"
-          style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
+          style={({ pressed }) => [styles.addButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
           onPress={() => navigation.navigate('AddTransaction')}
         >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <AppText color="#FFFFFF" style={styles.addButtonText}>Add</AppText>
         </Pressable>
       </View>
 
@@ -310,12 +311,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  iconButton: {
+  addButton: {
     alignItems: 'center',
     borderRadius: 16,
-    height: 48,
+    flexDirection: 'row',
+    gap: 6,
     justifyContent: 'center',
-    width: 48,
+    minHeight: 48,
+    paddingHorizontal: 16,
+  },
+  addButtonText: {
+    fontWeight: '800',
   },
   card: {
     gap: 16,
