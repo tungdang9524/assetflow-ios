@@ -14,6 +14,12 @@ import { useAppTheme } from '../theme/AppThemeProvider';
 import { TransactionType } from '../models/finance';
 
 type Navigation = NativeStackNavigationProp<TransactionsStackParamList, 'TransactionsList'>;
+const transactionTypeOptions: Array<{ label: string; value: TransactionType | 'all' }> = [
+  { label: 'All', value: 'all' },
+  { label: 'Income', value: 'income' },
+  { label: 'Expense', value: 'expense' },
+  { label: 'Transfer', value: 'transfer' },
+];
 
 function getDateKey(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -61,6 +67,7 @@ export function TransactionsScreen() {
   const { colors } = useAppTheme();
   const [query, setQuery] = React.useState('');
   const [typeFilter, setTypeFilter] = React.useState<TransactionType | 'all'>('all');
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = React.useState(false);
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
   const [isDatePickerOpen, setIsDatePickerOpen] = React.useState(false);
@@ -70,6 +77,7 @@ export function TransactionsScreen() {
   const fromFilterDate = parseDateFilter(fromDate);
   const toFilterDate = parseDateFilter(toDate, true);
   const rangeLabel = fromDate && toDate ? `${fromDate} to ${toDate}` : fromDate ? `${fromDate} onward` : 'Choose date range';
+  const selectedTypeLabel = transactionTypeOptions.find((option) => option.value === typeFilter)?.label ?? 'All';
   const firstPickerDay = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), 1);
   const pickerDaysInMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 0).getDate();
   const pickerLeadingBlankDays = (firstPickerDay.getDay() + 6) % 7;
@@ -153,34 +161,48 @@ export function TransactionsScreen() {
           onChangeText={setQuery}
           style={[styles.searchInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
         />
-        <View style={styles.segment}>
-          {[
-            ['all', 'All'],
-            ['income', 'Income'],
-            ['expense', 'Expense'],
-            ['transfer', 'Transfer'],
-          ].map(([value, label]) => {
-            const selected = typeFilter === value;
-            return (
-              <Pressable
-                key={value}
-                style={[styles.segmentItem, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : colors.surface }]}
-                onPress={() => setTypeFilter(value as TransactionType | 'all')}
-              >
-                <AppText color={selected ? '#FFFFFF' : colors.text} style={styles.segmentText}>
-                  {label}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Pressable style={[styles.rangeButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={openDateRangePicker}>
-          <View>
-            <AppText variant="caption">Date range</AppText>
-            <AppText color={fromDate ? colors.text : colors.muted} style={styles.rangeText}>{rangeLabel}</AppText>
+        <View style={styles.filterRow}>
+          <View style={styles.typeFilter}>
+            <Pressable style={[styles.typeButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => setIsTypeDropdownOpen((value) => !value)}>
+              <View>
+                <AppText variant="caption">Type</AppText>
+                <AppText style={styles.typeText}>{selectedTypeLabel}</AppText>
+              </View>
+              <AppText color={colors.primary} style={styles.typeToggle}>{isTypeDropdownOpen ? 'Up' : 'Down'}</AppText>
+            </Pressable>
+            {isTypeDropdownOpen ? (
+              <View style={[styles.typeDropdown, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                {transactionTypeOptions.map((option, index) => {
+                  const selected = typeFilter === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.typeOption, { borderBottomColor: colors.border, borderBottomWidth: index === transactionTypeOptions.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
+                      onPress={() => {
+                        setTypeFilter(option.value);
+                        setIsTypeDropdownOpen(false);
+                      }}
+                    >
+                      <AppText color={selected ? colors.primary : colors.text} style={styles.typeOptionText}>{option.label}</AppText>
+                      {selected ? <AppText color={colors.primary} style={styles.typeOptionText}>Selected</AppText> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
-          <AppText color={colors.primary} style={styles.rangeIcon}>Calendar</AppText>
-        </Pressable>
+          <Pressable style={[styles.rangeButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => {
+            setIsTypeDropdownOpen(false);
+            openDateRangePicker();
+          }}>
+            <View style={styles.rangeCopy}>
+              <AppText variant="caption">Date range</AppText>
+              <AppText color={fromDate ? colors.text : colors.muted} numberOfLines={1} style={styles.rangeText}>{rangeLabel}</AppText>
+            </View>
+            <AppText color={colors.primary} style={styles.rangeIcon}>Date</AppText>
+          </Pressable>
+        </View>
         {fromDate || toDate ? (
           <Pressable style={[styles.clearButton, { borderColor: colors.border }]} onPress={clearDateRange}>
             <AppText color={colors.primary} style={styles.clearButtonText}>Clear date filter</AppText>
@@ -302,23 +324,17 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 12,
   },
-  segment: {
+  filterRow: {
+    alignItems: 'flex-start',
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
-  segmentItem: {
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 40,
-    paddingHorizontal: 12,
+  typeFilter: {
+    flex: 0.82,
+    position: 'relative',
+    zIndex: 2,
   },
-  segmentText: {
-    fontWeight: '800',
-  },
-  rangeButton: {
+  typeButton: {
     alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
@@ -326,6 +342,46 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 54,
     paddingHorizontal: 12,
+  },
+  typeText: {
+    fontWeight: '800',
+  },
+  typeToggle: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  typeDropdown: {
+    borderRadius: 14,
+    borderWidth: 1,
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: 0,
+    top: 60,
+  },
+  typeOption: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  typeOptionText: {
+    fontWeight: '800',
+  },
+  rangeButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1.18,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 54,
+    paddingHorizontal: 12,
+  },
+  rangeCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   rangeText: {
     fontWeight: '800',
