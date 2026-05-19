@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -527,43 +527,79 @@ export function SecuritySettingsScreen() {
 export function BackupSettingsScreen() {
   const { state, importState } = useFinance();
   const { colors } = useAppTheme();
-  const [backupText, setBackupText] = useState('');
+  const [exportText, setExportText] = useState('');
+  const [importText, setImportText] = useState('');
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
-  function generateBackup() {
-    const nextBackupText = JSON.stringify(state, null, 2);
-    setBackupText(nextBackupText);
+  function openExportBackup() {
+    setExportText(JSON.stringify(state, null, 2));
+    setIsExportOpen(true);
   }
 
   function importBackup() {
     try {
-      importState(JSON.parse(backupText));
+      importState(JSON.parse(importText));
       Alert.alert('Import complete', 'Backup data was imported.');
+      setImportText('');
+      setIsImportOpen(false);
     } catch {
       Alert.alert('Invalid backup', 'Paste a valid AssetFlow JSON backup.');
     }
+  }
+
+  if (isImportOpen) {
+    return (
+      <Screen>
+        <Card style={styles.card}>
+          <View style={styles.rowHeader}>
+            <AppText variant="heading">Import backup</AppText>
+            <Pressable style={[styles.tag, { borderColor: colors.border }]} onPress={() => setIsImportOpen(false)}>
+              <AppText style={styles.segmentLabel}>Back</AppText>
+            </Pressable>
+          </View>
+          <AppText variant="caption">Paste your AssetFlow JSON backup below, then import it.</AppText>
+          <TextInput
+            multiline
+            placeholder="Paste backup JSON to import"
+            placeholderTextColor={colors.muted}
+            value={importText}
+            onChangeText={setImportText}
+            style={[styles.backupInput, { borderColor: colors.border, color: colors.text }]}
+          />
+          <PrimaryButton label="Import JSON backup" icon="cloud-upload-outline" onPress={importBackup} />
+        </Card>
+      </Screen>
+    );
   }
 
   return (
     <Screen>
       <Card style={styles.card}>
         <AppText variant="heading">Backup</AppText>
-        <PrimaryButton label="Generate JSON backup" icon="download-outline" onPress={generateBackup} />
-        <View style={[styles.backupPreview, { borderColor: colors.border }]}>
-          <AppText variant="caption" numberOfLines={6} ellipsizeMode="tail" selectable style={styles.backupPreviewText}>
-            {backupText || 'Backup JSON will appear here.'}
-          </AppText>
-        </View>
-        <AppText variant="caption">To copy, press and hold the box above, then tap Copy.</AppText>
-        <TextInput
-          multiline
-          placeholder="Paste backup JSON to import"
-          placeholderTextColor={colors.muted}
-          value={backupText}
-          onChangeText={setBackupText}
-          style={[styles.backupInput, { borderColor: colors.border, color: colors.text }]}
-        />
-        <PrimaryButton label="Import JSON backup" icon="cloud-upload-outline" onPress={importBackup} />
+        <PrimaryButton label="Export backup" icon="download-outline" onPress={openExportBackup} />
+        <PrimaryButton label="Import backup" icon="cloud-upload-outline" onPress={() => setIsImportOpen(true)} />
       </Card>
+      <Modal animationType="fade" transparent visible={isExportOpen} onRequestClose={() => setIsExportOpen(false)}>
+        <View style={styles.modalScrim}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.rowHeader}>
+              <AppText variant="heading">Export backup</AppText>
+              <Pressable style={[styles.tag, { borderColor: colors.border }]} onPress={() => setIsExportOpen(false)}>
+                <AppText style={styles.segmentLabel}>Close</AppText>
+              </Pressable>
+            </View>
+            <TextInput
+              multiline
+              editable={false}
+              selectTextOnFocus
+              value={exportText}
+              style={[styles.backupPreview, styles.backupPreviewText, { borderColor: colors.border, color: colors.text }]}
+            />
+            <AppText variant="caption">Để copy, giữ vào ô bên trên rồi nhấn Copy.</AppText>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -641,6 +677,11 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: 14,
+  },
+  rowHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   infoCard: {
     alignItems: 'center',
@@ -807,5 +848,19 @@ const styles = StyleSheet.create({
   },
   backupPreviewText: {
     fontFamily: 'monospace',
+  },
+  modalScrim: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    borderRadius: 18,
+    gap: 14,
+    maxHeight: '78%',
+    padding: 16,
+    width: '100%',
   },
 });
