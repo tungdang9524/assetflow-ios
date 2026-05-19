@@ -60,13 +60,13 @@ interface TransactionMutationResult {
 const FinanceContext = createContext<FinanceContextValue | undefined>(undefined);
 
 function normalizeState(storedState: FinanceState): FinanceState {
-  const sampleState = createSampleState();
+  const defaultState = createEmptyState();
 
   return {
-    ...sampleState,
+    ...defaultState,
     ...storedState,
     settings: {
-      ...sampleState.settings,
+      ...defaultState.settings,
       ...storedState.settings,
     },
   };
@@ -138,7 +138,7 @@ function getNextMonthlyRun(dayOfMonth: number, fromDate = new Date()) {
 }
 
 export function FinanceProvider({ children }: PropsWithChildren) {
-  const [state, setState] = useState<FinanceState>(createSampleState);
+  const [state, setState] = useState<FinanceState>(createEmptyState);
   const [isReady, setIsReady] = useState(false);
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
   const [hasProcessedRecurring, setHasProcessedRecurring] = useState(false);
