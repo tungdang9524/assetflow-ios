@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ExpoClipboard from 'expo-clipboard/build/ExpoClipboard';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
@@ -535,17 +534,6 @@ export function BackupSettingsScreen() {
     setBackupText(nextBackupText);
   }
 
-  function copyBackup() {
-    if (!backupText.trim()) {
-      Alert.alert('No backup', 'Generate a JSON backup first.');
-      return;
-    }
-
-    ExpoClipboard.setStringAsync(backupText)
-      .then(() => Alert.alert('Backup copied', 'The JSON backup was copied to your clipboard.'))
-      .catch(() => Alert.alert('Copy failed', 'Could not copy the backup to the clipboard.'));
-  }
-
   function importBackup() {
     try {
       importState(JSON.parse(backupText));
@@ -565,10 +553,7 @@ export function BackupSettingsScreen() {
             {backupText || 'Backup JSON will appear here.'}
           </AppText>
         </View>
-        <Pressable style={[styles.copyButton, { borderColor: colors.border }]} onPress={copyBackup}>
-          <Ionicons name="copy-outline" size={18} color={colors.primary} />
-          <AppText color={colors.primary} style={styles.copyButtonText}>Copy JSON backup</AppText>
-        </Pressable>
+        <AppText variant="caption">To copy, press and hold the box above, then tap Copy.</AppText>
         <TextInput
           multiline
           placeholder="Paste backup JSON to import"
@@ -822,17 +807,5 @@ const styles = StyleSheet.create({
   },
   backupPreviewText: {
     fontFamily: 'monospace',
-  },
-  copyButton: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  copyButtonText: {
-    fontWeight: '800',
   },
 });
