@@ -150,9 +150,14 @@ export function TransactionsScreen() {
           <AppText variant="caption">Ledger</AppText>
           <AppText variant="title">Transactions</AppText>
         </View>
+        <Pressable
+          accessibilityLabel="Add transaction"
+          style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.primary, opacity: pressed ? 0.82 : 1 }]}
+          onPress={() => navigation.navigate('AddTransaction')}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </Pressable>
       </View>
-
-      <PrimaryButton label="Add transaction" icon="add-circle-outline" onPress={() => navigation.navigate('AddTransaction')} />
 
       <View style={styles.filters}>
         <TextInput
@@ -304,6 +309,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  iconButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
   },
   card: {
     gap: 16,
