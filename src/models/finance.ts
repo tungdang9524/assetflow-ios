@@ -149,6 +149,7 @@ export interface AppSettings {
   rateSource?: string;
   pinEnabled: boolean;
   pinCode?: string;
+  faceIdEnabled: boolean;
 }
 
 export interface FinanceState {

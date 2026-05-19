@@ -217,6 +217,7 @@ export const createDefaultSettings = (): AppSettings => ({
   autoRateUpdates: true,
   rateSource: 'manual',
   pinEnabled: false,
+  faceIdEnabled: false,
 });
 
 export const createSampleState = (): FinanceState => ({

@@ -23,7 +23,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.assetflow.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "AssetFlow uses Face ID to unlock your finance data on app start."
       }
     },
     "extra": {
@@ -33,7 +34,13 @@
     },
     "owner": "kazuotm",
     "plugins": [
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "AssetFlow uses Face ID to unlock your finance data on app start."
+        }
+      ]
     ]
   }
 }
