@@ -57,9 +57,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   launchIcon: {
-    borderRadius: 34,
-    height: 120,
-    width: 120,
+    borderRadius: 54,
+    height: 190,
+    width: 190,
   },
 });
 
