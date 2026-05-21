@@ -640,7 +640,7 @@ export function AddAccountScreen() {
 
             <View style={styles.inputGroup}>
               <AppText variant="caption">Color</AppText>
-              <View style={styles.swatches}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatches}>
                 {accountColors.map((item) => (
                   <Pressable
                     key={item}
@@ -649,7 +649,7 @@ export function AddAccountScreen() {
                     style={[styles.swatch, { backgroundColor: item, borderColor: color === item ? colors.text : item }]}
                   />
                 ))}
-              </View>
+              </ScrollView>
             </View>
 
             {accountType === 'credit' ? (
@@ -1085,6 +1085,7 @@ const styles = StyleSheet.create({
   swatch: {
     borderRadius: 999,
     borderWidth: 3,
+    flexShrink: 0,
     height: 34,
     width: 34,
   },
