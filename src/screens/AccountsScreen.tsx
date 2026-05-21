@@ -215,7 +215,11 @@ export function AccountsScreen() {
       return `${formatCurrency(usdValue, 'USD')} - ${formatCurrency(vndValue, 'VND')}`;
     }
 
-    if (account.type === 'stock' || account.type === 'etf') {
+    if (account.type === 'stock' || account.type === 'bond' || account.type === 'etf') {
+      if (account.currency !== 'USD') {
+        return undefined;
+      }
+
       const usdValue = account.investmentHoldings?.length
         ? account.investmentHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
         : account.balance;

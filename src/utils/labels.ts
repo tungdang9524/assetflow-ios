@@ -9,7 +9,8 @@ export function formatAccountType(type: AccountType) {
     foreign: 'Foreign',
     credit: 'Credit',
     crypto: 'Crypto',
-    stock: 'Stocks',
+    stock: 'Stock funds',
+    bond: 'Bond funds',
     etf: 'ETF',
   };
 

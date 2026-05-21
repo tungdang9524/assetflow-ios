@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,11 +14,7 @@ const LAUNCH_SCREEN_MIN_MS = 900;
 function LaunchScreen() {
   const { navigationTheme } = useAppTheme();
 
-  return (
-    <View style={[styles.launchScreen, { backgroundColor: navigationTheme.colors.background }]}>
-      <Image source={require('./icon.png')} style={styles.launchIcon} />
-    </View>
-  );
+  return <View style={[styles.launchScreen, { backgroundColor: navigationTheme.colors.background }]} />;
 }
 
 function AppShell() {
@@ -52,14 +48,7 @@ function AppShell() {
 
 const styles = StyleSheet.create({
   launchScreen: {
-    alignItems: 'center',
     flex: 1,
-    justifyContent: 'center',
-  },
-  launchIcon: {
-    borderRadius: 54,
-    height: 190,
-    width: 190,
   },
 });
 

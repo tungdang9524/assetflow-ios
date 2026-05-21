@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { RouteProp, StackActions, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { AssetLineChart, AssetLineChartSeries } from '../components/AssetLineChart';
 import { AppText } from '../components/AppText';
 import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -16,6 +18,7 @@ import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
 import { formatCurrency } from '../utils/currency';
 import { formatAccountType } from '../utils/labels';
+import { fetchCryptoPriceHistory, fetchFmarketNavHistory, NavHistoryPoint, PriceHistoryPoint } from '../utils/marketData';
 
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AddAccount'>;
 type Route = RouteProp<AccountsStackParamList, 'AddAccount'>;
@@ -24,8 +27,8 @@ type CryptoHoldingRoute = RouteProp<AccountsStackParamList, 'AddCryptoHolding'>;
 type InvestmentHoldingNavigation = NativeStackNavigationProp<AccountsStackParamList, 'AddInvestmentHolding'>;
 type InvestmentHoldingRoute = RouteProp<AccountsStackParamList, 'AddInvestmentHolding'>;
 
-const accountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign', 'credit', 'crypto', 'stock', 'etf'];
-const accountColors = ['#50A878', '#3D7BFF', '#F59E0B', '#8B5CF6', '#0891B2', '#D94841', '#7C3AED', '#2563EB', '#059669'];
+const accountTypes: AccountType[] = ['cash', 'bank', 'ewallet', 'savings', 'foreign', 'credit', 'crypto', 'stock', 'bond', 'etf'];
+const accountColors = ['#50A878', '#3D7BFF', '#F59E0B', '#8B5CF6', '#0891B2', '#D94841', '#7C3AED', '#2563EB', '#B45309', '#059669'];
 const iconsByType: Record<AccountType, keyof typeof Ionicons.glyphMap> = {
   cash: 'wallet-outline',
   bank: 'business-outline',
@@ -35,11 +38,30 @@ const iconsByType: Record<AccountType, keyof typeof Ionicons.glyphMap> = {
   credit: 'card-outline',
   crypto: 'logo-bitcoin',
   stock: 'trending-up-outline',
+  bond: 'document-text-outline',
   etf: 'stats-chart-outline',
 };
 
 function parseAmount(value: string) {
   return Number(value.replace(/,/g, '.'));
+}
+
+function toDateOnly(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addYears(date: Date, yearCount: number) {
+  return toDateOnly(new Date(date.getFullYear() + yearCount, date.getMonth(), date.getDate()));
+}
+
+function formatDateInput(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function dateToIsoDate(date: Date) {
+  return toDateOnly(date).toISOString();
 }
 
 function getLegacyHolding(account: ReturnType<typeof useFinance>['state']['accounts'][number] | undefined): CryptoHolding[] {
@@ -75,6 +97,30 @@ function getInvestmentValue(holdings: InvestmentHolding[]) {
   return holdings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0);
 }
 
+function isInvestmentAccountType(type: AccountType): type is InvestmentAssetType {
+  return type === 'stock' || type === 'bond' || type === 'etf';
+}
+
+function getInvestmentCurrency(type: InvestmentAssetType): CurrencyCode {
+  return type === 'etf' ? 'USD' : 'VND';
+}
+
+function getInvestmentFallbackName(type: InvestmentAssetType) {
+  if (type === 'stock') {
+    return 'Stock Fund Portfolio';
+  }
+
+  if (type === 'bond') {
+    return 'Bond Fund Portfolio';
+  }
+
+  return 'ETF Portfolio';
+}
+
+function buildFlatSeriesPoints(value: number) {
+  return ['1M', '3M', '6M', '12M'].map((label) => ({ label, value }));
+}
+
 export function AddAccountScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
@@ -85,7 +131,7 @@ export function AddAccountScreen() {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [name, setName] = useState(editingAccount?.name ?? '');
   const [currency, setCurrency] = useState<CurrencyCode>(editingAccount?.currency ?? 'VND');
-  const [balance, setBalance] = useState(editingAccount && editingAccount.type !== 'crypto' && editingAccount.type !== 'stock' && editingAccount.type !== 'etf' ? String(editingAccount.balance) : '');
+  const [balance, setBalance] = useState(editingAccount && editingAccount.type !== 'crypto' && !isInvestmentAccountType(editingAccount.type) ? String(editingAccount.balance) : '');
   const [color, setColor] = useState(editingAccount?.color ?? accountColors[0]);
   const [cryptoHoldings, setCryptoHoldings] = useState<CryptoHolding[]>(getLegacyHolding(editingAccount));
   const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>(editingAccount?.investmentHoldings ?? []);
@@ -94,7 +140,41 @@ export function AddAccountScreen() {
   const [paymentDueDay, setPaymentDueDay] = useState(editingAccount?.paymentDueDay ? String(editingAccount.paymentDueDay) : '5');
   const [minimumPayment, setMinimumPayment] = useState(editingAccount?.minimumPayment ? String(editingAccount.minimumPayment) : '');
   const [annualInterestRate, setAnnualInterestRate] = useState(editingAccount?.annualInterestRate ? String(editingAccount.annualInterestRate) : '');
+  const [savingsStartDate, setSavingsStartDate] = useState(() => toDateOnly(new Date(editingAccount?.savingsStartDate ?? new Date())));
+  const [savingsEndDate, setSavingsEndDate] = useState(() => toDateOnly(new Date(editingAccount?.savingsEndDate ?? addYears(new Date(editingAccount?.savingsStartDate ?? new Date()), 1))));
+  const [activeSavingsDatePicker, setActiveSavingsDatePicker] = useState<'start' | 'end' | null>(null);
+  const [navHistoryBySymbol, setNavHistoryBySymbol] = useState<Record<string, NavHistoryPoint[]>>({});
+  const [cryptoPriceHistoryById, setCryptoPriceHistoryById] = useState<Record<string, PriceHistoryPoint[]>>({});
   const selectedTypeIcon = iconsByType[accountType];
+  const cryptoChartSeries: AssetLineChartSeries[] = cryptoHoldings.map((holding) => {
+    const history = cryptoPriceHistoryById[holding.cryptoId];
+    const currentValue = holding.quantity * (holding.priceUsd ?? 0);
+    const points = history?.length
+      ? history.map((point) => ({ label: point.label, value: point.priceUsd * holding.quantity }))
+      : buildFlatSeriesPoints(currentValue);
+
+    return {
+      id: holding.id,
+      label: holding.cryptoSymbol,
+      color: holding.color,
+      points,
+    };
+  });
+  const visibleInvestmentHoldings = isInvestmentAccountType(accountType) ? investmentHoldings.filter((holding) => holding.assetType === accountType) : [];
+  const investmentChartSeries: AssetLineChartSeries[] = visibleInvestmentHoldings.map((holding) => {
+    const history = navHistoryBySymbol[holding.assetSymbol];
+    const currentValue = holding.quantity * (holding.priceUsd ?? 0);
+    const points = history?.length
+      ? history.map((point) => ({ label: point.label, value: point.nav * holding.quantity }))
+      : buildFlatSeriesPoints(currentValue);
+
+    return {
+      id: holding.id,
+      label: holding.assetSymbol,
+      color: holding.color,
+      points,
+    };
+  });
 
   useEffect(() => {
     const pendingHolding = route.params?.cryptoHolding;
@@ -140,6 +220,76 @@ export function AddAccountScreen() {
     navigation.setParams({ investmentHolding: undefined });
   }, [navigation, route.params?.investmentHolding]);
 
+  useEffect(() => {
+    if (accountType !== 'crypto' || cryptoHoldings.length === 0) {
+      return;
+    }
+
+    let isActive = true;
+    const missingIds = Array.from(new Set(cryptoHoldings.map((holding) => holding.cryptoId))).filter((id) => !cryptoPriceHistoryById[id]);
+
+    if (missingIds.length === 0) {
+      return;
+    }
+
+    Promise.allSettled(missingIds.map((id) => fetchCryptoPriceHistory(id))).then((results) => {
+      if (!isActive) {
+        return;
+      }
+
+      setCryptoPriceHistoryById((currentHistory) => {
+        const nextHistory = { ...currentHistory };
+
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            nextHistory[missingIds[index]] = result.value;
+          }
+        });
+
+        return nextHistory;
+      });
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [accountType, cryptoHoldings, cryptoPriceHistoryById]);
+
+  useEffect(() => {
+    if (!isInvestmentAccountType(accountType) || accountType === 'etf' || visibleInvestmentHoldings.length === 0) {
+      return;
+    }
+
+    let isActive = true;
+    const missingSymbols = Array.from(new Set(visibleInvestmentHoldings.map((holding) => holding.assetSymbol))).filter((symbol) => !navHistoryBySymbol[symbol]);
+
+    if (missingSymbols.length === 0) {
+      return;
+    }
+
+    Promise.allSettled(missingSymbols.map((symbol) => fetchFmarketNavHistory(symbol))).then((results) => {
+      if (!isActive) {
+        return;
+      }
+
+      setNavHistoryBySymbol((currentHistory) => {
+        const nextHistory = { ...currentHistory };
+
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            nextHistory[missingSymbols[index]] = result.value;
+          }
+        });
+
+        return nextHistory;
+      });
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [accountType, investmentHoldings, navHistoryBySymbol]);
+
   function handleSubmit() {
     const parsedBalance = parseAmount(balance || '0');
 
@@ -169,6 +319,8 @@ export function AddAccountScreen() {
         paymentDueDay: undefined,
         minimumPayment: undefined,
         annualInterestRate: undefined,
+        savingsStartDate: undefined,
+        savingsEndDate: undefined,
       } as const;
 
       if (editingAccount) {
@@ -181,27 +333,29 @@ export function AddAccountScreen() {
       return;
     }
 
-    if (accountType === 'stock' || accountType === 'etf') {
+    if (isInvestmentAccountType(accountType)) {
       const holdings = investmentHoldings.filter((holding) => holding.assetType === accountType);
 
       if (holdings.length === 0) {
-        Alert.alert('No assets', `Add at least one ${accountType === 'stock' ? 'stock' : 'ETF'} and quantity.`);
+        Alert.alert('No assets', `Add at least one ${formatAccountType(accountType).toLowerCase()} asset and quantity.`);
         return;
       }
 
       const nextAccount = {
-        name: name.trim() || (accountType === 'stock' ? 'Stock Portfolio' : 'ETF Portfolio'),
+        name: name.trim() || getInvestmentFallbackName(accountType),
         type: accountType,
-        currency: 'USD',
+        currency: getInvestmentCurrency(accountType),
         balance: getInvestmentValue(holdings),
         icon: iconsByType[accountType],
-        color: accountType === 'stock' ? '#2563EB' : '#059669',
+        color: accountType === 'stock' ? '#2563EB' : accountType === 'bond' ? '#B45309' : '#059669',
         investmentHoldings: holdings,
         creditLimit: undefined,
         statementDay: undefined,
         paymentDueDay: undefined,
         minimumPayment: undefined,
         annualInterestRate: undefined,
+        savingsStartDate: undefined,
+        savingsEndDate: undefined,
         cryptoId: undefined,
         cryptoName: undefined,
         cryptoSymbol: undefined,
@@ -259,6 +413,18 @@ export function AddAccountScreen() {
       }
     }
 
+    if (accountType === 'savings') {
+      if (parsedInterestRate !== undefined && (!Number.isFinite(parsedInterestRate) || parsedInterestRate < 0)) {
+        Alert.alert('Invalid interest', 'Interest rate must be zero or higher.');
+        return;
+      }
+
+      if (formatDateInput(savingsEndDate) < formatDateInput(savingsStartDate)) {
+        Alert.alert('Invalid date range', 'End date must be on or after start date.');
+        return;
+      }
+    }
+
     const nextAccount = {
       name: name.trim() || formatAccountType(accountType),
       type: accountType,
@@ -270,7 +436,9 @@ export function AddAccountScreen() {
       statementDay: accountType === 'credit' ? parsedStatementDay : undefined,
       paymentDueDay: accountType === 'credit' ? parsedPaymentDueDay : undefined,
       minimumPayment: accountType === 'credit' ? parsedMinimumPayment : undefined,
-      annualInterestRate: accountType === 'credit' ? parsedInterestRate : undefined,
+      annualInterestRate: accountType === 'credit' || accountType === 'savings' ? parsedInterestRate : undefined,
+      savingsStartDate: accountType === 'savings' ? dateToIsoDate(savingsStartDate) : undefined,
+      savingsEndDate: accountType === 'savings' ? dateToIsoDate(savingsEndDate) : undefined,
       cryptoId: undefined,
       cryptoName: undefined,
       cryptoSymbol: undefined,
@@ -320,7 +488,7 @@ export function AddAccountScreen() {
         <View style={styles.inputGroup}>
           <AppText variant="caption">Name</AppText>
           <TextInput
-            placeholder={accountType === 'crypto' ? 'Crypto Wallet' : accountType === 'stock' ? 'Stock Portfolio' : accountType === 'etf' ? 'ETF Portfolio' : 'My account'}
+            placeholder={accountType === 'crypto' ? 'Crypto Wallet' : isInvestmentAccountType(accountType) ? getInvestmentFallbackName(accountType) : 'My account'}
             placeholderTextColor={colors.muted}
             value={name}
             onChangeText={setName}
@@ -350,8 +518,12 @@ export function AddAccountScreen() {
                     onPress={() => {
                       setAccountType(item);
                       setIsTypeDropdownOpen(false);
-                      if (item === 'crypto' || item === 'stock' || item === 'etf') {
+                      if (item === 'crypto') {
                         setCurrency('USD');
+                      }
+
+                      if (isInvestmentAccountType(item)) {
+                        setCurrency(getInvestmentCurrency(item));
                       }
                     }}
                   >
@@ -397,11 +569,16 @@ export function AddAccountScreen() {
                 </Pressable>
               ))}
             </View>
+            {cryptoChartSeries.length > 0 ? (
+              <View style={styles.assetChart}>
+                <AssetLineChart currency="USD" series={cryptoChartSeries} />
+              </View>
+            ) : null}
           </View>
-        ) : accountType === 'stock' || accountType === 'etf' ? (
+        ) : isInvestmentAccountType(accountType) ? (
           <View style={styles.inputGroup}>
             <View style={styles.rowHeader}>
-              <AppText variant="caption">{accountType === 'stock' ? 'Stock assets' : 'ETF assets'}</AppText>
+              <AppText variant="caption">{formatAccountType(accountType)} assets</AppText>
               <Pressable
                 style={[styles.smallButton, { borderColor: colors.border }]}
                 onPress={() => navigation.navigate('AddInvestmentHolding', { accountId: editingAccount?.id, assetType: accountType, holding: undefined })}
@@ -411,7 +588,7 @@ export function AddAccountScreen() {
               </Pressable>
             </View>
             <View style={styles.holdingList}>
-              {investmentHoldings.filter((holding) => holding.assetType === accountType).map((holding) => (
+              {visibleInvestmentHoldings.map((holding) => (
                 <Pressable
                   key={holding.id}
                   style={[styles.holdingRow, { borderColor: colors.border }]}
@@ -424,7 +601,7 @@ export function AddAccountScreen() {
                   </View>
                   <View style={styles.holdingAmount}>
                     <AppText style={styles.optionText}>{holding.quantity}</AppText>
-                    <AppText variant="caption">{formatCurrency(holding.quantity * (holding.priceUsd ?? 0), 'USD')}</AppText>
+                    <AppText variant="caption">{formatCurrency(holding.quantity * (holding.priceUsd ?? 0), getInvestmentCurrency(accountType))}</AppText>
                   </View>
                   <Pressable
                     style={styles.iconTap}
@@ -435,6 +612,11 @@ export function AddAccountScreen() {
                 </Pressable>
               ))}
             </View>
+            {investmentChartSeries.length > 0 ? (
+              <View style={styles.assetChart}>
+                <AssetLineChart currency={getInvestmentCurrency(accountType)} series={investmentChartSeries} />
+              </View>
+            ) : null}
           </View>
         ) : (
           <>
@@ -488,6 +670,42 @@ export function AddAccountScreen() {
               </View>
             ) : null}
 
+            {accountType === 'savings' ? (
+              <View style={styles.savingsDetails}>
+                <AppText variant="caption">Savings details</AppText>
+                <TextInput
+                  keyboardType="decimal-pad"
+                  placeholder="Interest rate %"
+                  placeholderTextColor={colors.muted}
+                  value={annualInterestRate}
+                  onChangeText={setAnnualInterestRate}
+                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                />
+                <View style={styles.inputRow}>
+                  <View style={styles.flex}>
+                    <AppText variant="caption">Start date</AppText>
+                    <Pressable
+                      style={[styles.dateButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                      onPress={() => setActiveSavingsDatePicker('start')}
+                    >
+                      <AppText style={styles.dateButtonText}>{formatDateInput(savingsStartDate)}</AppText>
+                      <Ionicons name="calendar-outline" size={18} color={colors.muted} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.flex}>
+                    <AppText variant="caption">End date</AppText>
+                    <Pressable
+                      style={[styles.dateButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                      onPress={() => setActiveSavingsDatePicker('end')}
+                    >
+                      <AppText style={styles.dateButtonText}>{formatDateInput(savingsEndDate)}</AppText>
+                      <Ionicons name="calendar-outline" size={18} color={colors.muted} />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.inputGroup}>
               <AppText variant="caption">{`${accountType === 'credit' ? 'Current balance' : 'Opening balance'} (${currency})`}</AppText>
               <TextInput
@@ -509,6 +727,42 @@ export function AddAccountScreen() {
           <AppText color={colors.danger} style={styles.deleteLabel}>Delete account</AppText>
         </Pressable>
       ) : null}
+      <Modal animationType="fade" transparent visible={Boolean(activeSavingsDatePicker)} onRequestClose={() => setActiveSavingsDatePicker(null)}>
+        <View style={styles.modalScrim}>
+          <View style={[styles.datePickerCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <AppText variant="heading">{activeSavingsDatePicker === 'start' ? 'Start date' : 'End date'}</AppText>
+              <Pressable style={[styles.closeButton, { borderColor: colors.border }]} onPress={() => setActiveSavingsDatePicker(null)}>
+                <AppText style={styles.closeButtonText}>Done</AppText>
+              </Pressable>
+            </View>
+            <DateTimePicker
+              display="spinner"
+              mode="date"
+              value={activeSavingsDatePicker === 'start' ? savingsStartDate : savingsEndDate}
+              onChange={(_, selectedDate) => {
+                if (!selectedDate) {
+                  return;
+                }
+
+                const nextDate = toDateOnly(selectedDate);
+
+                if (activeSavingsDatePicker === 'start') {
+                  setSavingsStartDate(nextDate);
+
+                  if (formatDateInput(savingsEndDate) < formatDateInput(nextDate)) {
+                    setSavingsEndDate(nextDate);
+                  }
+                  return;
+                }
+
+                setSavingsEndDate(nextDate);
+              }}
+              textColor={colors.text}
+            />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -621,7 +875,7 @@ export function AddInvestmentHoldingScreen() {
     const parsedQuantity = parseAmount(quantity);
 
     if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-      Alert.alert('Invalid quantity', `Enter a ${assetType === 'stock' ? 'share' : 'unit'} quantity greater than zero.`);
+      Alert.alert('Invalid quantity', 'Enter a unit quantity greater than zero.');
       return;
     }
 
@@ -645,7 +899,7 @@ export function AddInvestmentHoldingScreen() {
     <Screen>
       <Card style={styles.form}>
         <View style={styles.inputGroup}>
-          <AppText variant="caption">{assetType === 'stock' ? 'Stock' : 'ETF'}</AppText>
+          <AppText variant="caption">{formatAccountType(assetType)}</AppText>
           <Pressable
             style={[styles.dropdownButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
             onPress={() => setIsAssetDropdownOpen((value) => !value)}
@@ -653,7 +907,7 @@ export function AddInvestmentHoldingScreen() {
             <View style={[styles.assetDot, { backgroundColor: selectedAsset.color }]} />
             <View style={styles.dropdownCopy}>
               <AppText style={styles.optionText}>{selectedAsset.symbol} - {selectedAsset.name}</AppText>
-              <AppText variant="caption">Fallback price {formatCurrency(selectedAsset.fallbackPriceUsd, 'USD')}</AppText>
+              <AppText variant="caption">NAV {formatCurrency(selectedAsset.fallbackPriceUsd, getInvestmentCurrency(assetType))}</AppText>
             </View>
             <Ionicons name={isAssetDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
           </Pressable>
@@ -673,7 +927,7 @@ export function AddInvestmentHoldingScreen() {
                     <View style={[styles.assetDot, { backgroundColor: asset.color }]} />
                     <View style={styles.dropdownCopy}>
                       <AppText style={styles.optionText}>{asset.symbol} - {asset.name}</AppText>
-                      <AppText variant="caption">{formatCurrency(asset.fallbackPriceUsd, 'USD')}</AppText>
+                      <AppText variant="caption">{formatCurrency(asset.fallbackPriceUsd, getInvestmentCurrency(assetType))}</AppText>
                     </View>
                     {asset.id === assetId ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
                   </Pressable>
@@ -806,6 +1060,9 @@ const styles = StyleSheet.create({
   holdingList: {
     gap: 10,
   },
+  assetChart: {
+    marginTop: 6,
+  },
   holdingRow: {
     alignItems: 'center',
     borderRadius: 14,
@@ -834,9 +1091,55 @@ const styles = StyleSheet.create({
   creditDetails: {
     gap: 10,
   },
+  savingsDetails: {
+    gap: 10,
+  },
   helpText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  dateButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+    marginTop: 8,
+    minHeight: 50,
+    paddingHorizontal: 12,
+  },
+  dateButtonText: {
+    fontWeight: '800',
+  },
+  modalScrim: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.38)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  datePickerCard: {
+    borderRadius: 20,
+    padding: 18,
+    width: '100%',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  closeButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+    paddingHorizontal: 14,
+  },
+  closeButtonText: {
+    fontWeight: '800',
   },
   deleteButton: {
     alignItems: 'center',

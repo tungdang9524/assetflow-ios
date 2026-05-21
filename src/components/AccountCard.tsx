@@ -15,11 +15,19 @@ interface AccountCardProps {
   convertedBalance?: string;
 }
 
+function formatSavingsDate(isoDate?: string) {
+  if (!isoDate) {
+    return '-';
+  }
+
+  return isoDate.slice(0, 10);
+}
+
 export function AccountCard({ account, convertedBalance }: AccountCardProps) {
   const cryptoValueUsd = account.cryptoHoldings?.length
     ? account.cryptoHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
     : undefined;
-  const investmentValueUsd = account.investmentHoldings?.length
+  const investmentValue = account.investmentHoldings?.length
     ? account.investmentHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0)
     : undefined;
   const primaryBalance =
@@ -27,13 +35,13 @@ export function AccountCard({ account, convertedBalance }: AccountCardProps) {
       ? cryptoValueUsd !== undefined
         ? formatCurrency(cryptoValueUsd, 'USD')
         : formatCryptoAmount(account.balance, account.cryptoSymbol)
-      : account.type === 'stock' || account.type === 'etf'
-        ? formatCurrency(investmentValueUsd ?? account.balance, 'USD')
+      : account.type === 'stock' || account.type === 'bond' || account.type === 'etf'
+        ? formatCurrency(investmentValue ?? account.balance, account.currency)
       : formatCurrency(account.balance, account.currency);
   const typeLabel =
     account.type === 'crypto' && account.cryptoHoldings?.length
       ? `${account.cryptoHoldings.length} assets`
-      : (account.type === 'stock' || account.type === 'etf') && account.investmentHoldings?.length
+      : (account.type === 'stock' || account.type === 'bond' || account.type === 'etf') && account.investmentHoldings?.length
         ? `${account.investmentHoldings.length} assets`
       : account.type === 'crypto' && account.cryptoName
         ? account.cryptoName
@@ -73,6 +81,16 @@ export function AccountCard({ account, convertedBalance }: AccountCardProps) {
           </View>
         </View>
       ) : null}
+      {account.type === 'savings' ? (
+        <View style={styles.savingsBlock}>
+          <View style={styles.creditLine}>
+            <AppText variant="caption">Interest {account.annualInterestRate !== undefined ? `${account.annualInterestRate}%` : '-'}</AppText>
+            <AppText variant="caption">
+              {formatSavingsDate(account.savingsStartDate)} - {formatSavingsDate(account.savingsEndDate)}
+            </AppText>
+          </View>
+        </View>
+      ) : null}
     </Card>
   );
 }
@@ -104,6 +122,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   creditBlock: {
+    gap: 8,
+  },
+  savingsBlock: {
     gap: 8,
   },
   creditLine: {

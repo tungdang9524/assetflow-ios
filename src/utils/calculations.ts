@@ -2,6 +2,10 @@ import { Account, Budget, Category, Transaction } from '../models/finance';
 import { convertCurrency } from './currency';
 import { getMonthKey, isInMonth } from './dates';
 
+function isInvestmentAccount(account: Account) {
+  return account.type === 'stock' || account.type === 'bond' || account.type === 'etf';
+}
+
 export function getNetWorthVnd(accounts: Account[], usdToVndRate: number) {
   return accounts.reduce((sum, account) => {
     if (account.type === 'crypto') {
@@ -12,9 +16,9 @@ export function getNetWorthVnd(accounts: Account[], usdToVndRate: number) {
       return sum + account.balance * (account.cryptoPriceUsd ?? 0) * usdToVndRate;
     }
 
-    if (account.type === 'stock' || account.type === 'etf') {
-      const investmentValueUsd = account.investmentHoldings?.reduce((holdingSum, holding) => holdingSum + holding.quantity * (holding.priceUsd ?? 0), 0) ?? account.balance;
-      return sum + investmentValueUsd * usdToVndRate;
+    if (isInvestmentAccount(account)) {
+      const investmentValue = account.investmentHoldings?.reduce((holdingSum, holding) => holdingSum + holding.quantity * (holding.priceUsd ?? 0), 0) ?? account.balance;
+      return sum + convertCurrency(investmentValue, account.currency, 'VND', usdToVndRate);
     }
 
     return sum + convertCurrency(account.balance, account.currency, 'VND', usdToVndRate);

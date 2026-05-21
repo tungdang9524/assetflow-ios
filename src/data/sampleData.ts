@@ -4,6 +4,8 @@ import { getMonthKey } from '../utils/dates';
 
 const currentMonth = getMonthKey(new Date());
 const sampleCrypto = getCryptoAsset('bitcoin');
+const sampleSavingsStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+const sampleSavingsEndDate = new Date(new Date().getFullYear() + 1, new Date().getMonth(), 1).toISOString();
 
 export const sampleAccounts: Account[] = [
   {
@@ -41,6 +43,9 @@ export const sampleAccounts: Account[] = [
     balance: 52000000,
     icon: 'lock-closed-outline',
     color: '#8B5CF6',
+    annualInterestRate: 6.2,
+    savingsStartDate: sampleSavingsStartDate,
+    savingsEndDate: sampleSavingsEndDate,
   },
   {
     id: 'usd-account',
