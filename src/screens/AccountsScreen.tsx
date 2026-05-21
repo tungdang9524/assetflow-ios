@@ -202,7 +202,7 @@ export function AccountsScreen() {
 
   function handleRefreshRates() {
     refreshMarketRates()
-      .then(() => Alert.alert('Rates updated', 'USD/VND and crypto prices were refreshed.'))
+      .then(() => Alert.alert('Rates updated', 'USD/VND, crypto, fund, and ETF prices were refreshed.'))
       .catch(() => Alert.alert('Update failed', 'Could not refresh rates right now. Check your internet connection and try again.'));
   }
 

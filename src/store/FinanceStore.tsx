@@ -9,12 +9,13 @@ import {
   CryptoWatchItem,
   Debt,
   FinanceState,
+  InvestmentAssetType,
   RecurringTransaction,
   SavingsGoal,
   Transaction,
 } from '../models/finance';
 import { convertCurrency } from '../utils/currency';
-import { fetchCryptoPrices, fetchUsdToVndRate } from '../utils/marketData';
+import { fetchCryptoPrices, fetchInvestmentPrices, fetchUsdToVndRate, getInvestmentPriceKey } from '../utils/marketData';
 import { loadFinanceState, saveFinanceState } from './storage';
 
 interface FinanceContextValue {
@@ -135,6 +136,10 @@ function getNextMonthlyRun(dayOfMonth: number, fromDate = new Date()) {
   }
 
   return candidate;
+}
+
+function isInvestmentAccountType(type: Account['type']): type is InvestmentAssetType {
+  return type === 'stock' || type === 'bond' || type === 'etf';
 }
 
 export function FinanceProvider({ children }: PropsWithChildren) {
@@ -495,56 +500,105 @@ export function FinanceProvider({ children }: PropsWithChildren) {
         return account.cryptoId ? [...holdingIds, account.cryptoId] : holdingIds;
       });
       const watchIds = state.cryptoWatchlist.map((item) => item.cryptoId);
-      const [usdResult, cryptoResult] = await Promise.allSettled([fetchUsdToVndRate(), fetchCryptoPrices([...cryptoIds, ...watchIds])]);
-      const updatedAt = new Date().toISOString();
+      const investmentPriceRequests = state.accounts.flatMap((account) => {
+        if (!isInvestmentAccountType(account.type)) {
+          return [];
+        }
 
-      if (usdResult.status === 'rejected' && cryptoResult.status === 'rejected') {
+        return (account.investmentHoldings ?? []).map((holding) => ({
+          symbol: holding.assetSymbol,
+          type: holding.assetType,
+        }));
+      });
+      const [usdResult, cryptoResult, investmentResult] = await Promise.allSettled([
+        fetchUsdToVndRate(),
+        fetchCryptoPrices([...cryptoIds, ...watchIds]),
+        fetchInvestmentPrices(investmentPriceRequests),
+      ]);
+      const updatedAt = new Date().toISOString();
+      const didRefreshAnyMarketData =
+        usdResult.status === 'fulfilled' ||
+        (cryptoResult.status === 'fulfilled' && cryptoResult.value.length > 0) ||
+        (investmentResult.status === 'fulfilled' && investmentResult.value.length > 0);
+
+      if (!didRefreshAnyMarketData) {
         throw new Error('Unable to refresh market rates');
       }
 
       setState((currentState) => {
         const nextUsdRate = usdResult.status === 'fulfilled' ? usdResult.value : currentState.settings.usdToVndRate;
         const cryptoPrices = cryptoResult.status === 'fulfilled' ? cryptoResult.value : [];
+        const investmentPrices = investmentResult.status === 'fulfilled' ? investmentResult.value : [];
+        const investmentPriceByKey = new Map(investmentPrices.map((price) => [getInvestmentPriceKey(price.type, price.symbol), price]));
 
         return {
           ...currentState,
           accounts: currentState.accounts.map((account) => {
-            if (account.type !== 'crypto') {
-              return account;
-            }
+            if (account.type === 'crypto') {
+              const nextHoldings = account.cryptoHoldings?.map((holding) => {
+                const holdingPrice = cryptoPrices.find((item) => item.id === holding.cryptoId);
 
-            const nextHoldings = account.cryptoHoldings?.map((holding) => {
-              const holdingPrice = cryptoPrices.find((item) => item.id === holding.cryptoId);
+                if (!holdingPrice) {
+                  return holding;
+                }
 
-              if (!holdingPrice) {
-                return holding;
+                return {
+                  ...holding,
+                  priceUsd: holdingPrice.priceUsd,
+                  change24h: holdingPrice.change24h,
+                  lastPriceUpdatedAt: updatedAt,
+                };
+              });
+
+              if (!account.cryptoId) {
+                return nextHoldings ? { ...account, cryptoHoldings: nextHoldings } : account;
+              }
+
+              const price = cryptoPrices.find((item) => item.id === account.cryptoId);
+
+              if (!price) {
+                return nextHoldings ? { ...account, cryptoHoldings: nextHoldings } : account;
               }
 
               return {
-                ...holding,
-                priceUsd: holdingPrice.priceUsd,
-                change24h: holdingPrice.change24h,
+                ...account,
+                cryptoHoldings: nextHoldings,
+                cryptoPriceUsd: price.priceUsd,
+                crypto24hChange: price.change24h,
                 lastPriceUpdatedAt: updatedAt,
               };
-            });
-
-            if (!account.cryptoId) {
-              return nextHoldings ? { ...account, cryptoHoldings: nextHoldings } : account;
             }
 
-            const price = cryptoPrices.find((item) => item.id === account.cryptoId);
+            if (isInvestmentAccountType(account.type)) {
+              let didUpdateHolding = false;
+              const nextHoldings = account.investmentHoldings?.map((holding) => {
+                const holdingPrice = investmentPriceByKey.get(getInvestmentPriceKey(holding.assetType, holding.assetSymbol));
 
-            if (!price) {
-              return nextHoldings ? { ...account, cryptoHoldings: nextHoldings } : account;
+                if (!holdingPrice) {
+                  return holding;
+                }
+
+                didUpdateHolding = true;
+                return {
+                  ...holding,
+                  priceUsd: holdingPrice.priceUsd,
+                  lastPriceUpdatedAt: updatedAt,
+                };
+              });
+
+              if (!didUpdateHolding || !nextHoldings) {
+                return account;
+              }
+
+              return {
+                ...account,
+                balance: nextHoldings.reduce((sum, holding) => sum + holding.quantity * (holding.priceUsd ?? 0), 0),
+                investmentHoldings: nextHoldings,
+                lastPriceUpdatedAt: updatedAt,
+              };
             }
 
-            return {
-              ...account,
-              cryptoHoldings: nextHoldings,
-              cryptoPriceUsd: price.priceUsd,
-              crypto24hChange: price.change24h,
-              lastPriceUpdatedAt: updatedAt,
-            };
+            return account;
           }),
           cryptoWatchlist: currentState.cryptoWatchlist.map((watchItem) => {
             const price = cryptoPrices.find((item) => item.id === watchItem.cryptoId);
@@ -564,7 +618,7 @@ export function FinanceProvider({ children }: PropsWithChildren) {
             ...currentState.settings,
             usdToVndRate: nextUsdRate,
             lastRateUpdatedAt: updatedAt,
-            rateSource: usdResult.status === 'fulfilled' || cryptoResult.status === 'fulfilled' ? 'network' : currentState.settings.rateSource,
+            rateSource: didRefreshAnyMarketData ? 'network' : currentState.settings.rateSource,
           },
         };
       });

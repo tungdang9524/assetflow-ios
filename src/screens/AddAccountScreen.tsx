@@ -18,7 +18,7 @@ import { useFinance } from '../store/FinanceStore';
 import { useAppTheme } from '../theme/AppThemeProvider';
 import { formatCurrency } from '../utils/currency';
 import { formatAccountType } from '../utils/labels';
-import { fetchCryptoPriceHistory, fetchFmarketNavHistory, NavHistoryPoint, PriceHistoryPoint } from '../utils/marketData';
+import { fetchCryptoPriceHistory, fetchInvestmentPriceHistory, fetchInvestmentPrices, getInvestmentPriceKey, PriceHistoryPoint } from '../utils/marketData';
 
 type Navigation = NativeStackNavigationProp<AccountsStackParamList, 'AddAccount'>;
 type Route = RouteProp<AccountsStackParamList, 'AddAccount'>;
@@ -143,7 +143,7 @@ export function AddAccountScreen() {
   const [savingsStartDate, setSavingsStartDate] = useState(() => toDateOnly(new Date(editingAccount?.savingsStartDate ?? new Date())));
   const [savingsEndDate, setSavingsEndDate] = useState(() => toDateOnly(new Date(editingAccount?.savingsEndDate ?? addYears(new Date(editingAccount?.savingsStartDate ?? new Date()), 1))));
   const [activeSavingsDatePicker, setActiveSavingsDatePicker] = useState<'start' | 'end' | null>(null);
-  const [navHistoryBySymbol, setNavHistoryBySymbol] = useState<Record<string, NavHistoryPoint[]>>({});
+  const [investmentPriceHistoryBySymbol, setInvestmentPriceHistoryBySymbol] = useState<Record<string, PriceHistoryPoint[]>>({});
   const [cryptoPriceHistoryById, setCryptoPriceHistoryById] = useState<Record<string, PriceHistoryPoint[]>>({});
   const selectedTypeIcon = iconsByType[accountType];
   const cryptoChartSeries: AssetLineChartSeries[] = cryptoHoldings.map((holding) => {
@@ -162,10 +162,10 @@ export function AddAccountScreen() {
   });
   const visibleInvestmentHoldings = isInvestmentAccountType(accountType) ? investmentHoldings.filter((holding) => holding.assetType === accountType) : [];
   const investmentChartSeries: AssetLineChartSeries[] = visibleInvestmentHoldings.map((holding) => {
-    const history = navHistoryBySymbol[holding.assetSymbol];
+    const history = investmentPriceHistoryBySymbol[getInvestmentPriceKey(holding.assetType, holding.assetSymbol)];
     const currentValue = holding.quantity * (holding.priceUsd ?? 0);
     const points = history?.length
-      ? history.map((point) => ({ label: point.label, value: point.nav * holding.quantity }))
+      ? history.map((point) => ({ label: point.label, value: point.priceUsd * holding.quantity }))
       : buildFlatSeriesPoints(currentValue);
 
     return {
@@ -256,28 +256,31 @@ export function AddAccountScreen() {
   }, [accountType, cryptoHoldings, cryptoPriceHistoryById]);
 
   useEffect(() => {
-    if (!isInvestmentAccountType(accountType) || accountType === 'etf' || visibleInvestmentHoldings.length === 0) {
+    if (!isInvestmentAccountType(accountType) || visibleInvestmentHoldings.length === 0) {
       return;
     }
 
     let isActive = true;
-    const missingSymbols = Array.from(new Set(visibleInvestmentHoldings.map((holding) => holding.assetSymbol))).filter((symbol) => !navHistoryBySymbol[symbol]);
+    const missingHoldings = Array.from(
+      new Map(visibleInvestmentHoldings.map((holding) => [getInvestmentPriceKey(holding.assetType, holding.assetSymbol), holding])).values(),
+    ).filter((holding) => !investmentPriceHistoryBySymbol[getInvestmentPriceKey(holding.assetType, holding.assetSymbol)]);
 
-    if (missingSymbols.length === 0) {
+    if (missingHoldings.length === 0) {
       return;
     }
 
-    Promise.allSettled(missingSymbols.map((symbol) => fetchFmarketNavHistory(symbol))).then((results) => {
+    Promise.allSettled(missingHoldings.map((holding) => fetchInvestmentPriceHistory(holding.assetSymbol, holding.assetType))).then((results) => {
       if (!isActive) {
         return;
       }
 
-      setNavHistoryBySymbol((currentHistory) => {
+      setInvestmentPriceHistoryBySymbol((currentHistory) => {
         const nextHistory = { ...currentHistory };
 
         results.forEach((result, index) => {
           if (result.status === 'fulfilled') {
-            nextHistory[missingSymbols[index]] = result.value;
+            const holding = missingHoldings[index];
+            nextHistory[getInvestmentPriceKey(holding.assetType, holding.assetSymbol)] = result.value;
           }
         });
 
@@ -288,7 +291,7 @@ export function AddAccountScreen() {
     return () => {
       isActive = false;
     };
-  }, [accountType, investmentHoldings, navHistoryBySymbol]);
+  }, [accountType, investmentHoldings, investmentPriceHistoryBySymbol]);
 
   function handleSubmit() {
     const parsedBalance = parseAmount(balance || '0');
@@ -870,6 +873,37 @@ export function AddInvestmentHoldingScreen() {
   const [quantity, setQuantity] = useState(route.params?.holding ? String(route.params.holding.quantity) : '');
   const [isAssetDropdownOpen, setIsAssetDropdownOpen] = useState(false);
   const selectedAsset = getInvestmentAsset(assetType, assetId);
+  const [marketQuote, setMarketQuote] = useState(() => ({
+    priceUsd: route.params?.holding?.assetId === selectedAsset.id ? route.params.holding.priceUsd ?? selectedAsset.fallbackPriceUsd : selectedAsset.fallbackPriceUsd,
+    updatedAt: route.params?.holding?.assetId === selectedAsset.id ? route.params.holding.lastPriceUpdatedAt : undefined,
+  }));
+
+  useEffect(() => {
+    let isActive = true;
+    const fallbackQuote = {
+      priceUsd: route.params?.holding?.assetId === selectedAsset.id ? route.params.holding.priceUsd ?? selectedAsset.fallbackPriceUsd : selectedAsset.fallbackPriceUsd,
+      updatedAt: route.params?.holding?.assetId === selectedAsset.id ? route.params.holding.lastPriceUpdatedAt : undefined,
+    };
+
+    setMarketQuote(fallbackQuote);
+
+    fetchInvestmentPrices([{ symbol: selectedAsset.symbol, type: assetType }])
+      .then((prices) => {
+        if (!isActive || !prices[0]) {
+          return;
+        }
+
+        setMarketQuote({
+          priceUsd: prices[0].priceUsd,
+          updatedAt: new Date().toISOString(),
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isActive = false;
+    };
+  }, [assetType, route.params?.holding?.assetId, route.params?.holding?.lastPriceUpdatedAt, route.params?.holding?.priceUsd, selectedAsset.fallbackPriceUsd, selectedAsset.id, selectedAsset.symbol]);
 
   function saveHolding() {
     const parsedQuantity = parseAmount(quantity);
@@ -886,7 +920,8 @@ export function AddInvestmentHoldingScreen() {
       assetName: selectedAsset.name,
       assetSymbol: selectedAsset.symbol,
       quantity: parsedQuantity,
-      priceUsd: selectedAsset.fallbackPriceUsd,
+      priceUsd: marketQuote.priceUsd,
+      lastPriceUpdatedAt: marketQuote.updatedAt,
       color: selectedAsset.color,
     };
 
@@ -907,7 +942,7 @@ export function AddInvestmentHoldingScreen() {
             <View style={[styles.assetDot, { backgroundColor: selectedAsset.color }]} />
             <View style={styles.dropdownCopy}>
               <AppText style={styles.optionText}>{selectedAsset.symbol} - {selectedAsset.name}</AppText>
-              <AppText variant="caption">NAV {formatCurrency(selectedAsset.fallbackPriceUsd, getInvestmentCurrency(assetType))}</AppText>
+              <AppText variant="caption">Price {formatCurrency(marketQuote.priceUsd, getInvestmentCurrency(assetType))}</AppText>
             </View>
             <Ionicons name={isAssetDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
           </Pressable>

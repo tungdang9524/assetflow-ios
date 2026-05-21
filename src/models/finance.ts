@@ -49,6 +49,7 @@ export interface InvestmentHolding {
   assetSymbol: string;
   quantity: number;
   priceUsd?: number;
+  lastPriceUpdatedAt?: string;
   color: string;
 }
 

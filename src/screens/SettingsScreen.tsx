@@ -188,7 +188,7 @@ export function RateSettingsScreen() {
 
   function handleRefreshRates() {
     refreshMarketRates().then(() => {
-      Alert.alert('Rates updated', 'USD/VND and crypto prices were refreshed.');
+      Alert.alert('Rates updated', 'USD/VND, crypto, fund, and ETF prices were refreshed.');
     }).catch(() => {
       Alert.alert('Update failed', 'Could not refresh rates right now. Check your internet connection and try again.');
     });
@@ -214,7 +214,7 @@ export function RateSettingsScreen() {
             <AppText variant="body" style={styles.value}>
               Auto update rates
             </AppText>
-            <AppText variant="caption">Refresh USD/VND and crypto prices from network on app start.</AppText>
+            <AppText variant="caption">Refresh USD/VND, crypto, fund NAV, and ETF prices from network on app start.</AppText>
           </View>
           <Switch
             value={state.settings.autoRateUpdates}
@@ -228,7 +228,7 @@ export function RateSettingsScreen() {
           Last update: {state.settings.lastRateUpdatedAt ? new Date(state.settings.lastRateUpdatedAt).toLocaleString() : 'Not yet'} - Source:{' '}
           {state.settings.rateSource ?? 'manual'}
         </AppText>
-        <AppText variant="caption">FX data: ExchangeRate-API open endpoint. Crypto data: CoinGecko public API.</AppText>
+        <AppText variant="caption">FX: ExchangeRate-API. Crypto: CoinGecko. VN funds: Fmarket. ETFs: Yahoo Finance chart data.</AppText>
       </Card>
     </Screen>
   );
